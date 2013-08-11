@@ -127,6 +127,68 @@
 
 ;;;
 
+;; uses Hopcroft's algorithm: http://en.wikipedia.org/wiki/DFA_minimization#Hopcroft.27s_algorithm
+(defn- reduce-states [dfa]
+  (assert (deterministic? dfa))
+  (let [accept (accept dfa)
+        smallest #(if (< (count %1) (count %2)) %1 %2)]
+    (loop [remaining-partitions #{accept}
+           partitions #{accept (set/difference (states dfa) accept)}
+           remaining-states nil]
+      (if (empty? remaining-states)
+
+        ;; pop one off, recur with list of candidate states
+        (if (empty? remaining-partitions)
+          (->> partitions
+            (map #(zipmap % (repeat (first %))))
+            (apply merge))
+          (let [s (first remaining-partitions)]
+            (recur
+              (disj remaining-partitions s)
+              partitions
+              (map
+                (fn [input]
+                  (set
+                    (filter
+                      #(contains? s (-> dfa (transitions %) (get input)))
+                      (states dfa))))
+                (alphabet dfa)))))
+
+        ;; repartition
+        (let [a (first remaining-states)
+              remaining-partitions (atom remaining-partitions)
+              partitions (->> partitions
+                           (mapcat
+                             (fn [b]
+                               (let [i (set/intersection a b)]
+                                 (if (empty? i)
+                                   [b]
+                                   (let [d (set/difference b a)]
+                                     (if (contains? @remaining-partitions b)
+                                       (swap! remaining-partitions
+                                         #(-> %
+                                            (disj b)
+                                            (conj i d)))
+                                       (swap! remaining-partitions conj (smallest i d)))
+                                     [i d])))))
+                           set)]
+          (recur
+            @remaining-partitions
+            partitions
+            (rest remaining-states)))))))
+
+(defn minimize-dfa [fsm]
+  (assert (deterministic? fsm))
+  (let [state->new-state (reduce-states fsm)]
+    (dfa
+      (start fsm)
+      (->> (accept fsm) (map state->new-state) distinct)
+      (zipmap
+        (states fsm)
+        (map #(transitions fsm %) (states fsm))))))
+
+;;;
+
 
 
 

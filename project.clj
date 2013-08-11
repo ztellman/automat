@@ -2,5 +2,5 @@
   :description ""
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
-  :dependencies []
-  :profiles {:dev {:depenencies [[org.clojure/clojure "1.5.1"]]}})
+  :dependencies [[rhizome "0.1.9"]]
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.5.1"]]}})
