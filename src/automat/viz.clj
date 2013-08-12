@@ -25,9 +25,7 @@
       :node->descriptor (fn [n]
                           (if-not n
                             {:label "", :width 0, :shape :plaintext}
-                            {:label (pr-str n)
-                             :shape :circle
-                             :peripheries (when (accept? n) 2)}))
+                            {:label "", :shape :circle, :peripheries (when (accept? n) 2)}))
       :edge->descriptor (fn [src dst]
                           {:label (->> (src+dst->inputs src dst)
                                     (map #(if (= a/epsilon %) "\u03B5" %))
