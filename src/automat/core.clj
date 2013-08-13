@@ -1,10 +1,11 @@
 (ns automat.core
+  (:use [potemkin])
   (:refer-clojure :exclude [concat compile])
   (:require [clojure.set :as set]))
 
 ;;;
 
-(defprotocol Automata
+(defprotocol+ Automata
   (deterministic? [_] "Returns true if the automata is a DFA, false otherwise.")
   (states [_] "The set of possible states within the automata.")
   (alphabet [_] "The set of possible inputs for the automata.")
@@ -61,21 +62,19 @@
     ((if deterministic? dfa nfa)
      (f (start fsm))
      (map f (accept fsm))
-     (zipmap
-       (map f (states fsm))
-       (map
-         (fn [input->state]
-           (zipmap
-             (keys input->state)
-             (map
-               (if deterministic? f #(set (map f %)))
-               (vals input->state))))
-         (map
-           #(transitions fsm %)
-           (states fsm)))))))
+     (->> (states fsm)
+       (map (fn [state]
+              {(f state)
+               (let [input->state (transitions fsm state)]
+                 (zipmap
+                   (keys input->state)
+                   (map
+                     (if deterministic? f #(set (map f %)))
+                     (vals input->state))))}))
+       (apply merge-with merge)))))
 
 (defn- next-states
-  "Gives all possible next states for given pair of state and input, following all epsilon
+  "Gives all possible next states for given pair of state and inpu
    transitions."
   [nfa state input]
   (assert (not (deterministic? nfa)))
@@ -92,7 +91,10 @@
                           traversed))]
         (recur traversed pending)))))
 
-(defn ->nfa [fsm]
+(defn ->nfa
+  "Converts the given automaton into a non-deterministic finite automata. If it's already
+   non-deterministic, this is a no-op."
+  [fsm]
   (if-not (deterministic? fsm)
     fsm
     (nfa
@@ -107,7 +109,10 @@
               (map #(set [%]) (vals input->state))))
           (map #(transitions fsm %) (states fsm)))))))
 
-(defn ->dfa [fsm]
+(defn ->dfa
+  "Converts the given automaton into a deterministic finite automata. If it's already
+   deterministic, this is a no-op."
+  [fsm]
   (if (deterministic? fsm)
     fsm
     (let [start-state (conj
@@ -168,7 +173,10 @@
 
 ;;;
 
-(defn- reachable-states [fsm]
+;; assumes DFA
+(defn- reachable-states
+  "Returns states which can be reached from the start state."
+  [fsm]
   (loop [reachable #{ (start fsm) }
          explore #{ (start fsm) }]
     (if (empty? explore)
@@ -180,6 +188,28 @@
           (set/union reachable explore')
           (set/difference explore' reachable))))))
 
+;; assumes DFA
+(defn- dead-states
+  "Returns non-accept states which point only to themselves and other dead states."
+  [fsm]
+  (let [candidates (set/difference (states fsm) (accept fsm))]
+    (loop [dead #{}]
+      (if-let [dead' (seq
+                       (filter
+                         (fn [state]
+                           (-> (transitions fsm state)
+                             vals
+                             set
+                             (disj state)
+                             (set/difference dead)
+                             empty?))
+                         (set/difference
+                           candidates
+                           dead)))]
+        (recur (set/union (set dead') dead))
+        dead))))
+
+;; assumes DFA
 ;; http://en.wikipedia.org/wiki/DFA_minimization#Hopcroft.27s_algorithm
 (defn- reduce-states [fsm]
   (let [accept (accept fsm)
@@ -229,41 +259,50 @@
             partitions
             (rest remaining-states)))))))
 
-(defn- minimize [fsm]
+(defn- prune [fsm]
   (let [fsm (->dfa fsm)
-        reachable? (constantly true) #_(reachable-states fsm)
-        state->new-state (->> (reduce-states fsm)
-                           (filter #(reachable? (key %)))
-                           (into {}))
-        states' (filter
-                  #(= % (state->new-state %))
-                  (states fsm))]
+        reachable? (set/difference
+                     (reachable-states fsm)
+                     (dead-states fsm))]
     (dfa
       (start fsm)
-      (->> (accept fsm) (map state->new-state) distinct)
-      (zipmap
-        states'
-        (map
-          (fn [input->state]
-            (let [input->state (->> input->state
-                                 (filter #(contains? state->new-state (val %)))
-                                 (into {}))]
-              (zipmap
-                (keys input->state)
-                (map state->new-state (vals input->state)))))
-          (map #(transitions fsm %) states'))))))
+      (filter reachable? (accept fsm))
+      (zipmap*
+        (filter reachable? (states fsm))
+        (fn [state]
+          (->> (transitions fsm state)
+            (filter #(reachable? (val %)))
+            (into {})))))))
 
-(defn compile [fsm]
-  (let [fsm' (minimize fsm)]
-    (rename-states fsm'
+(defn minimize
+  "Returns a minimized DFA."
+  [fsm]
+  (let [fsm (prune (->dfa fsm))
+        state->new-state (reduce-states fsm)
+        states' (filter #(= % (state->new-state %)) (states fsm))
+        fsm (dfa
+              (state->new-state
+                (start fsm))
+              (->> (accept fsm)
+                (map state->new-state)
+                set)
+              (zipmap
+                states'
+                (map
+                  (fn [input->state]
+                    (zipmap
+                      (keys input->state)
+                      (map state->new-state (vals input->state))))
+                  (map #(transitions fsm %) states'))))]
+    (rename-states fsm
       (zipmap
-        (states fsm')
+        (states fsm)
         (range)))))
 
 ;;;
 
 (defn- gensym-states [fsm]
-  (let [prefix (gensym "state")]
+  (let [prefix (gensym "s")]
     (rename-states fsm #(vector prefix %))))
 
 (defn automaton
@@ -272,12 +311,13 @@
   (dfa 0 #{1} {0 (zipmap inputs (repeat 1))}))
 
 (defn concat
-  "Concatenate one or more FSMs together."
+  "Concatenate one or more automatons together."
   ([a]
      a)
   ([a b]
-     (let [a (->nfa (gensym-states a))
-           b (->nfa (gensym-states b))
+     ;; we need to remove any epsilons before adding more
+     (let [a (-> a ->dfa gensym-states ->nfa)
+           b (-> b ->dfa gensym-states ->nfa)
            state->input->states (merge
                                   (zipmap* (states a) #(transitions a %))
                                   (zipmap* (states b) #(transitions b %)))]
@@ -292,8 +332,9 @@
      (apply concat (concat a b) rest)))
 
 (defn kleene
+  "Accepts zero or more of the given automaton."
   [fsm]
-  (let [fsm (->nfa fsm)]
+  (let [fsm (-> fsm ->dfa ->nfa)]
     (nfa
       (start fsm)
       (conj (accept fsm) (start fsm))
@@ -301,3 +342,82 @@
         #(assoc-in %1 [%2 epsilon] #{(start fsm)})
         (zipmap* (states fsm) #(transitions fsm %))
         (accept fsm)))))
+
+(defn- merge-fsms [a b accept-states]
+  (let [a (gensym-states (minimize a))
+        b (gensym-states (minimize b))
+        cartesian-states (for [s-a (states a), s-b (states b)]
+                           [s-a s-b])
+        inputs (set/union
+                 (alphabet a)
+                 (alphabet b))]
+    (dfa
+      [(start a) (start b)]
+      (accept-states a b)
+      (merge
+        (zipmap* (states a) #(transitions a %))
+        (zipmap* (states b) #(transitions b %))
+        (zipmap*
+          cartesian-states
+          (fn [[s-a s-b]]
+            (merge
+              (transitions a s-a)
+              (transitions b s-b)
+              (zipmap*
+                (filter
+                  #(and
+                     (contains? (transitions a s-a) %)
+                     (contains? (transitions b s-b) %))
+                  inputs)
+                (fn [input]
+                  [(get (transitions a s-a) input)
+                   (get (transitions b s-b) input)])))))))))
+
+(defn intersection
+  "Returns the intersection of multiple automata."
+  ([a]
+     a)
+  ([a b]
+     (merge-fsms a b
+       (fn [a b]
+         (for [s-a (accept a), s-b (accept b)]
+           [s-a s-b]))))
+  ([a b & rest]
+     (apply intersection (intersection a b) rest)))
+
+(defn union
+  "Returns the union of multiple automata."
+  ([a]
+     a)
+  ([a b]
+     (merge-fsms a b
+       (fn [a b]
+         (set/union
+           (accept a)
+           (accept b)
+           (set
+             (for [s-a (accept a), s-b (states b)]
+               [s-a s-b]))
+           (set
+             (for [s-a (states a), s-b (accept b)]
+               [s-a s-b]))))))
+  ([a b & rest]
+     (apply union (union a b) rest)))
+
+(defn difference
+  "Returns the difference of multiple automata."
+  ([a]
+     a)
+  ([a b]
+     (merge-fsms a b
+       (fn [a b]
+         (set/union
+           (accept a)
+           (set
+             (for [s-a (accept a), s-b (set/difference (states b) (accept b))]
+               [s-a s-b]))))))
+  ([a b & rest]
+     (apply difference (difference a b) rest)))
+
+
+

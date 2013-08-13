@@ -8,7 +8,7 @@
   [fsm]
   (let [accept? (a/accept fsm)
         adjacent-fn (if (a/deterministic? fsm)
-                      identity
+                      distinct
                       #(distinct (apply concat %)))
         src+dst->inputs (fn [src dst]
                           (->> (a/transitions fsm src)
