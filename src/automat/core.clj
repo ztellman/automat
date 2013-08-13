@@ -74,7 +74,7 @@
        (apply merge-with merge)))))
 
 (defn- next-states
-  "Gives all possible next states for given pair of state and inpu
+  "Gives all possible next states for given pair of state and input
    transitions."
   [nfa state input]
   (assert (not (deterministic? nfa)))
@@ -321,13 +321,14 @@
            state->input->states (merge
                                   (zipmap* (states a) #(transitions a %))
                                   (zipmap* (states b) #(transitions b %)))]
-       (nfa
-         (start a)
-         (accept b)
-         (reduce
-           #(assoc-in %1 [%2 epsilon] #{(start b)})
-           state->input->states
-           (accept a)))))
+       (minimize
+         (nfa
+           (start a)
+           (accept b)
+           (reduce
+             #(assoc-in %1 [%2 epsilon] #{(start b)})
+             state->input->states
+             (accept a))))))
   ([a b & rest]
      (apply concat (concat a b) rest)))
 
@@ -335,13 +336,22 @@
   "Accepts zero or more of the given automaton."
   [fsm]
   (let [fsm (-> fsm ->dfa ->nfa)]
-    (nfa
-      (start fsm)
-      (conj (accept fsm) (start fsm))
-      (reduce
-        #(assoc-in %1 [%2 epsilon] #{(start fsm)})
-        (zipmap* (states fsm) #(transitions fsm %))
-        (accept fsm)))))
+    (minimize
+      (nfa
+        (start fsm)
+        (conj (accept fsm) (start fsm))
+        (reduce
+          #(assoc-in %1 [%2 epsilon] #{(start fsm)})
+          (zipmap* (states fsm) #(transitions fsm %))
+          (accept fsm))))))
+
+(defn maybe
+  "Accepts one or zero of the given automaton."
+  [fsm]
+  ((if (deterministic? fsm) dfa nfa)
+   (start fsm)
+   (conj (accept fsm) (start fsm))
+   (zipmap* (states fsm) #(transitions fsm %))))
 
 (defn- merge-fsms [a b accept-states]
   (let [a (gensym-states (minimize a))

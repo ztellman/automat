@@ -4,4 +4,5 @@
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[rhizome "0.1.9"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.5.1"]
-                                  [potemkin "0.3.2"]]}})
+                                  [potemkin "0.3.2"]
+                                  [reiddraper/simple-check "0.2.1"]]}})
