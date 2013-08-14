@@ -24,10 +24,11 @@
       :vertical? false
       :node->descriptor (fn [n]
                           (if-not n
-                            {:label "", :width 0, :shape :plaintext}
-                            {:label "", :shape :circle, :peripheries (when (accept? n) 2)}))
+                            {:width 0, :shape :plaintext}
+                            {:shape :circle, :peripheries (when (accept? n) 2)}))
       :edge->descriptor (fn [src dst]
-                          {:label (->> (src+dst->inputs src dst)
+                          {:fontname "monospace"
+                           :label (->> (src+dst->inputs src dst)
                                     (map #(if (= a/epsilon %) "\u03B5" %))
                                     (interpose ",")
                                     (apply str))}))))

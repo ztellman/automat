@@ -36,15 +36,17 @@
 ;;;
 
 (def automatons
-  (list*
-    (a/kleene (a/automaton :a :b))
-    (mapcat
-      #(list
-         (->> % (map a/automaton) (apply a/concat))
-         (a/concat
+  (map
+    a/minimize
+    (list*
+      (a/kleene (a/automaton :a :b))
+      (mapcat
+        #(list
            (->> % (map a/automaton) (apply a/concat))
-           (a/kleene (a/automaton :a :b))))
-      [[:a] [:b] [:a :b] [:b :a]])))
+           (a/concat
+             (->> % (map a/automaton) (apply a/concat))
+             (a/kleene (a/automaton :a :b))))
+        [[:a] [:b] [:a :b] [:b :a]]))))
 
 (def closed-over-operations
   (prop/for-all
@@ -62,5 +64,5 @@
                a/intersection set/intersection
                a/difference set/difference})))))))
 
-(defspec check-closed-over-operations 100
+(defspec check-closed-over-operations 1000
   closed-over-operations)
