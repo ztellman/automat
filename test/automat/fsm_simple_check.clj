@@ -1,8 +1,8 @@
-(ns automat.core-simple-check
+(ns automat.fsm-simple-check
   (:require
     [clojure.test :refer :all]
     [clojure.set :as set]
-    [automat.core :as a]
+    [automat.fsm :as a]
     [simple-check.core :as sc]
     [simple-check.generators :as gen]
     [simple-check.properties :as prop]
@@ -22,17 +22,6 @@
 
 ;;;
 
-(def input
-  (gen/elements [:a :b]))
-
-(def input-stream
-  (gen/list input))
-
-(def input-streams
-  (gen/list input-stream))
-
-;;;
-
 (def automatons
   (map
     a/minimize
@@ -46,9 +35,11 @@
              (a/kleene (a/automaton :a :b))))
         [[:a] [:b] [:a :b] [:b :a]]))))
 
-(def closed-over-operations
+(def streams-gen (gen/list (gen/list (gen/elements [:a :b]))))
+
+(defspec check-closed-over-operations 100
   (prop/for-all
-    [streams input-streams]
+    [streams streams-gen]
     (let [accepts #(->> streams (filter (partial accepts-seq? %)) set)]
       (every? true?
         (for [a automatons, b automatons]
@@ -61,6 +52,3 @@
               {a/union set/union
                a/intersection set/intersection
                a/difference set/difference})))))))
-
-(defspec check-closed-over-operations 1000
-  closed-over-operations)

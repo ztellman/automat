@@ -1,7 +1,7 @@
-(ns automat.core-test
+(ns automat.fsm-test
   (:require
     [clojure.test :refer :all]
-    [automat.core :as a]))
+    [automat.fsm :as a]))
 
 (defn accepts-seq? [fsm sequence]
   (let [fsm (a/->dfa fsm)]

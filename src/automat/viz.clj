@@ -1,6 +1,6 @@
 (ns automat.viz
   (:require
-    [automat.core :as a]
+    [automat.fsm :as a]
     [rhizome.dot :as r]
     [rhizome.viz :as v]))
 
