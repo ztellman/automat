@@ -23,9 +23,7 @@
 ;;;
 
 (def input
-  (gen/one-of
-    [(gen/return :a)
-     (gen/return :b)]))
+  (gen/elements [:a :b]))
 
 (def input-stream
   (gen/list input))
