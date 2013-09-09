@@ -1,4 +1,0 @@
-#!/bin/sh
-
-lein do clean, pom, jar &&  scp pom.xml target/*.jar clojars@clojars.org: && git push && git push --tags
-lein doc && cd doc && git add . && git commit -m "update docs" && git push origin gh-pages && cd ..
