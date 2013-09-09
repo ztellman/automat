@@ -25,7 +25,7 @@
     (clojure.core/and (string? x) (= 1 (count x))) (int (first x))
     :else nil))
 
-(defn- parse-automata [s]
+(defn parse-automata [s]
   (let [s (if (sequential? s)
             s
             [s])]
@@ -41,41 +41,59 @@
       (apply fsm/concat)
       fsm/minimize)))
 
-(defn ? [& args]
+(defn ?
+  "Returns an automaton that accepts zero or one of the given automata."
+  [& args]
   (->> args
     parse-automata
     fsm/maybe))
 
-(defn + [& args]
+(defn +
+  "Returns an automaton that accepts one or more of the given automata."
+  [& args]
   (let [fsm (parse-automata args)]
     (fsm/concat fsm (fsm/kleene fsm))))
 
-(defn * [& args]
+(defn *
+  "Returns an automaton that accepts zero or more of the given automata."
+  [& args]
   (->> args
     parse-automata
     fsm/kleene))
 
-(defn or [& args]
+(defn or
+  "Returns an automaton that accepts the union of the given automata."
+  [& args]
   (->> args
     (map parse-automata)
     (apply fsm/union)))
 
-(defn and [& args]
+(defn and
+  "Returns an automaton that accepts the intersection the given automata."
+  [& args]
   (->> args
     (map parse-automata)
     (apply fsm/intersection)))
 
-(defn difference [& args]
+(defn difference
+  "Returns an automaton that accepts the disjoint of the first automaton and the subsequent
+   automata."
+  [& args]
   (->> args
     (map parse-automata)
     (apply fsm/difference)))
 
-(defn complement [& args]
+(defn complement
+  "Returns the complement of the given automaton."
+  [& args]
   (->> args
     parse-automata
     fsm/complement))
 
-(defn not [& args]
+(defn not
+  "Returns the complement of any zero or one-transition automata (i.e. something which accepts
+   a single input or none at all)."
+  [& args]
   (let [fsm (parse-automata args)]
     (assert (> 3 (count (fsm/states fsm)))
       "'not' can only be used on one or zero-transition automata.")
@@ -83,7 +101,8 @@
       (fsm/all-automaton)
       fsm)))
 
-(def any (fsm/all-automaton))
+(def ^{:doc "Returns an automaton that accepts any single input value."}
+  any (fsm/all-automaton))
 
 (defn- input-range [lower upper]
   (let [lower (parse-input lower)
@@ -96,8 +115,13 @@
             "Don't know how to create a range from '"
             (pr-str lower) "' to '" (pr-str upper) "'"))))))
 
-(defmacro .. [lower upper]
+(defmacro ..
+  "Returns an automaton which matches any input within the inclusive range of [upper, lower]."
+  [lower upper]
   `(#'automat.core/input-range ~lower ~upper))
+
+(defn fsm [& args]
+  (parse-automata args))
 
 ;;;
 
@@ -146,7 +170,7 @@
                     `(identical? ~eof-value input##))
                (if (== stream-index## (.stream-index ~compiled-state))
                  ~compiled-state
-                 (CompiledAutomatonState.
+                 (automat.core.CompiledAutomatonState.
                    (.accepted? ~compiled-state)
                    was-accepted?##
                    state-index##
@@ -174,7 +198,7 @@
                                                     ~(if (= fsm/reject state)
                                                        reject-clause
                                                        (if ((fsm/accept fsm) state)
-                                                         `(CompiledAutomatonState.
+                                                         `(automat.core.CompiledAutomatonState.
                                                             true
                                                             true
                                                             ~(state->index state)
@@ -184,7 +208,7 @@
                                       :else
                                       ~(if-let [default-state (fsm/next-state fsm state fsm/default)]
                                          (if ((fsm/accept fsm) default-state)
-                                           `(CompiledAutomatonState.
+                                           `(automat.core.CompiledAutomatonState.
                                               true
                                               true
                                               ~(state->index default-state)
@@ -210,38 +234,41 @@
             (mapcat #(vals (fsm/transitions fsm %)))
             (remove #(contains? state->index %))))))))
 
-(defn compile [fsm]
-  (let [fsm (fsm/minimize fsm)
-        state->index (canonicalize-states fsm)]
-    (with-meta
-      (eval
-        (unify-gensyms
-          `(reify ICompiledAutomaton
-             (start [_#]
-               (CompiledAutomatonState.
-                 ~(contains? (fsm/accept fsm) (fsm/start fsm))
-                 false
-                 ~(state->index (fsm/start fsm))
-                 0
-                 nil))
-             (find [_# state## input-stream##]
-               (if (.accepted? ^CompiledAutomatonState state##)
-                 state##
+(defn compile [& args]
+  (if (clojure.core/and (= 1 (count args))
+        (instance? ICompiledAutomaton (first args)))
+    (first args)
+    (let [fsm (fsm/minimize (parse-automata args))
+          state->index (canonicalize-states fsm)]
+      (with-meta
+        (eval
+          (unify-gensyms
+            `(reify ICompiledAutomaton
+               (start [_#]
+                 (automat.core.CompiledAutomatonState.
+                   ~(contains? (fsm/accept fsm) (fsm/start fsm))
+                   false
+                   ~(state->index (fsm/start fsm))
+                   0
+                   nil))
+               (find [_# state## input-stream##]
+                 (if (.accepted? ^automat.core.CompiledAutomatonState state##)
+                   state##
+                   ~(consume-form
+                      (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
+                      (with-meta `input-stream## {:tag "automat.utils.InputStream"})
+                      fsm
+                      state->index
+                      `(recur ~(state->index (fsm/start fsm))))))
+               (advance [_# state## input-stream## reject-value##]
                  ~(consume-form
-                    (with-meta `state## {:tag "CompiledAutomatonState"})
-                    (with-meta `input-stream## {:tag "InputStream"})
+                    (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
+                    (with-meta `input-stream## {:tag "automat.utils.InputStream"})
                     fsm
                     state->index
-                    `(recur ~(state->index (fsm/start fsm))))))
-             (advance [_# state## input-stream## reject-value##]
-               ~(consume-form
-                  (with-meta `state## {:tag "CompiledAutomatonState"})
-                  (with-meta `input-stream## {:tag "InputStream"})
-                  fsm
-                  state->index
-                  `reject-value##)))))
-      {:fsm fsm
-       :state->index state->index})))
+                    `reject-value##)))))
+       {:fsm fsm
+        :state->index state->index}))))
 
 (defn greedy-find [fsm ^CompiledAutomatonState state input-sequence]
   (loop [state state]
