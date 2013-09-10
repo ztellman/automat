@@ -48,7 +48,7 @@ public class Wrappers {
         java.nio.ByteBuffer buf;
 
         public ByteBufferWrapper(java.nio.ByteBuffer b) {
-            buf = b;
+            buf = b.duplicate();
         }
 
         public Object nextInput(Object eof) {
@@ -64,7 +64,7 @@ public class Wrappers {
         java.nio.ShortBuffer buf;
 
         public ShortBufferWrapper(java.nio.ShortBuffer b) {
-            buf = b;
+            buf = b.duplicate();
         }
 
         public Object nextInput(Object eof) {
@@ -80,7 +80,7 @@ public class Wrappers {
         java.nio.IntBuffer buf;
 
         public IntBufferWrapper(java.nio.IntBuffer b) {
-            buf = b;
+            buf = b.duplicate();
         }
 
         public Object nextInput(Object eof) {
@@ -96,7 +96,7 @@ public class Wrappers {
         java.nio.LongBuffer buf;
 
         public LongBufferWrapper(java.nio.LongBuffer b) {
-            buf = b;
+            buf = b.duplicate();
         }
 
         public Object nextInput(Object eof) {

@@ -132,7 +132,7 @@
 
 (defrecord+ CompiledAutomatonState
   [^boolean accepted?
-   ^boolean was-accepted?
+   checkpoint
    ^long state-index
    ^long stream-index
    state])
@@ -158,64 +158,66 @@
   [compiled-state input-stream fsm state->index reject-clause]
   (let [numeric? (every? number? (fsm/alphabet fsm))
         eof-value (if numeric? Integer/MIN_VALUE ::eof)]
-    `(let [was-accepted?## (.was-accepted? ~compiled-state)]
-       (let-mutable [state-reduction## (.state ~compiled-state)
-                     stream-index## (.stream-index ~compiled-state)]
-         (loop [state-index## (.state-index ~compiled-state)]
-           (let [input## (~(if numeric? '.nextNumericInput '.nextInput)
-                          ~input-stream
-                          ~eof-value)]
-             (if ~(if numeric?
-                    `(== ~eof-value input##)
-                    `(identical? ~eof-value input##))
-               (if (== stream-index## (.stream-index ~compiled-state))
-                 ~compiled-state
-                 (automat.core.CompiledAutomatonState.
-                   (.accepted? ~compiled-state)
-                   was-accepted?##
-                   state-index##
-                   stream-index##
-                   state-reduction##))
-               (do
-                 (set! stream-index## (p/inc (unchecked-long stream-index##)))
-                 (case state-index##
-                   ~@(->> state->index
-                       (mapcat
-                         (fn [[state index]]
-                           `(~index
-                              ~(let [input->state (fsm/transitions fsm state)
-                                     state->inputs (->> input->state
-                                                     keys
-                                                     (group-by input->state))]
-                                 (when (clojure.core/not (empty? state->inputs))
-                                   `(cond
-                                      ~@(->> state->inputs
-                                          (mapcat
-                                            (fn [[state inputs]]
-                                              (let [inputs (remove #{fsm/default} inputs)]
-                                                (when (clojure.core/not (empty? inputs))
-                                                  `(~(inputs-predicate `input## inputs)
-                                                    ~(if (= fsm/reject state)
-                                                       reject-clause
-                                                       (if ((fsm/accept fsm) state)
-                                                         `(automat.core.CompiledAutomatonState.
-                                                            true
-                                                            true
-                                                            ~(state->index state)
-                                                            stream-index##
-                                                            state-reduction##)
-                                                         `(recur ~(state->index state))))))))))
-                                      :else
-                                      ~(if-let [default-state (fsm/next-state fsm state fsm/default)]
-                                         (if ((fsm/accept fsm) default-state)
-                                           `(automat.core.CompiledAutomatonState.
-                                              true
-                                              true
-                                              ~(state->index default-state)
-                                              stream-index##
-                                              state-reduction##)
-                                           `(recur ~(state->index default-state)))
-                                         reject-clause)))))))))))))))))
+    `(let-mutable [state-reduction## (.state ~compiled-state)]
+       (loop [state-index## (.state-index ~compiled-state)
+              stream-index## (.stream-index ~compiled-state)]
+         (let [input## (~(if numeric? '.nextNumericInput '.nextInput)
+                        ~input-stream
+                        ~eof-value)]
+           (if ~(if numeric?
+                  `(== ~eof-value input##)
+                  `(identical? ~eof-value input##))
+             (if (== stream-index## (.stream-index ~compiled-state))
+               ~compiled-state
+               (automat.core.CompiledAutomatonState.
+                 false
+                 (if (.accepted? ~compiled-state)
+                   ~compiled-state
+                   (.checkpoint ~compiled-state))
+                 state-index##
+                 stream-index##
+                 state-reduction##))
+             (let [stream-index## (p/inc stream-index##)]
+               (case state-index##
+                 ~@(->> state->index
+                     (mapcat
+                       (fn [[state index]]
+                         `(~index
+                            ~(let [input->state (fsm/transitions fsm state)
+                                   state->inputs (->> input->state
+                                                   keys
+                                                   (group-by input->state))]
+                               (if (empty? state->inputs)
+                                 reject-clause
+                                 `(cond
+                                    ~@(->> state->inputs
+                                        (mapcat
+                                          (fn [[state inputs]]
+                                            (let [inputs (remove #{fsm/default} inputs)]
+                                              (when (clojure.core/not (empty? inputs))
+                                                `(~(inputs-predicate `input## inputs)
+                                                  ~(if (= fsm/reject state)
+                                                     reject-clause
+                                                     (if ((fsm/accept fsm) state)
+                                                       `(automat.core.CompiledAutomatonState.
+                                                          true
+                                                          nil
+                                                          ~(state->index state)
+                                                          stream-index##
+                                                          state-reduction##)
+                                                       `(recur ~(state->index state) stream-index##)))))))))
+
+                                    :else
+                                    ~(if-let [default-state (fsm/next-state fsm state fsm/default)]
+                                       (if ((fsm/accept fsm) default-state)
+                                         `(automat.core.CompiledAutomatonState.
+                                            true
+                                            nil
+                                            ~(state->index default-state)
+                                            stream-index##
+                                            state-reduction##)
+                                         `(recur ~(state->index default-state) stream-index##))
+                                       reject-clause))))))))))))))))
 
 (defn- canonicalize-states [fsm]
   (loop [state->index {}, to-search [(fsm/start fsm)]]
@@ -247,39 +249,51 @@
                (start [_#]
                  (automat.core.CompiledAutomatonState.
                    ~(contains? (fsm/accept fsm) (fsm/start fsm))
-                   false
+                   nil
                    ~(state->index (fsm/start fsm))
                    0
                    nil))
-               (find [_# state## input-stream##]
-                 (if (.accepted? ^automat.core.CompiledAutomatonState state##)
-                   state##
+               (find [_# state## stream##]
+                 (let [stream## (stream/to-stream stream##)]
+                   (if (.accepted? ^automat.core.CompiledAutomatonState state##)
+                     state##
+                     ~(consume-form
+                        (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
+                        (with-meta `stream## {:tag "automat.utils.InputStream"})
+                        fsm
+                        state->index
+                        `(recur ~(state->index (fsm/start fsm)) stream-index##)))))
+               (advance [_# state## stream## reject-value##]
+                 (let [stream## (stream/to-stream stream##)]
                    ~(consume-form
                       (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
-                      (with-meta `input-stream## {:tag "automat.utils.InputStream"})
+                      (with-meta `stream## {:tag "automat.utils.InputStream"})
                       fsm
                       state->index
-                      `(recur ~(state->index (fsm/start fsm))))))
-               (advance [_# state## input-stream## reject-value##]
-                 ~(consume-form
-                    (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
-                    (with-meta `input-stream## {:tag "automat.utils.InputStream"})
-                    fsm
-                    state->index
-                    `reject-value##)))))
-       {:fsm fsm
-        :state->index state->index}))))
+                      `reject-value##))))))
+        {:fsm fsm
+         :state->index state->index}))))
 
-(defn greedy-find [fsm ^CompiledAutomatonState state input-sequence]
-  (loop [state state]
-    (if (.was-accepted? state)
-      (let [state' (advance fsm state input-sequence ::reject)]
-        (if (or
-              (identical? ::reject state')
-              (identical? state state'))
-          state
-          (recur state')))
-      (recur (find fsm state input-sequence)))))
+(defn greedy-find [fsm ^CompiledAutomatonState state stream]
+  (let [stream (stream/to-stream stream)]
+    (loop [state state]
+      (if (clojure.core/or (.accepted? state) (.checkpoint state))
+        (let [state' (advance fsm state stream ::reject)]
+          (cond
+            (identical? ::reject state')
+            (if (.accepted? state)
+              state
+              (.checkpoint state))
+            
+            (identical? state state')
+            state
+
+            :else
+            (recur state')))
+        (let [^CompiledAutomatonState state' (find fsm state stream)]
+          (if (.accepted? state')
+            (recur state')
+            state'))))))
 
 (defn view [compiled-fsm]
   (if-not (instance? ICompiledAutomaton compiled-fsm)

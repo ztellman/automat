@@ -8,7 +8,10 @@
                  [proteus "0.1.4"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.5.1"]
                                   [reiddraper/simple-check "0.2.1"]
+                                  [criterium "0.4.2"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}}
+  :test-selectors {:default (complement :benchmark)
+                   :benchmark :benchmark}
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-server"]
   :java-source-paths ["src"]
