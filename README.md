@@ -91,7 +91,6 @@ The `not` operator is equivalent to the regex `^` operator:
 
 In this diagram, `DEF` represents the default transition (in this case, anything but `2`), and `REJ` represents a rejection state.
 
-```
 ### license
 
 Copyright © 2013 Zachary Tellman
