@@ -277,28 +277,39 @@
 ;; http://en.wikipedia.org/wiki/DFA_minimization#Hopcroft.27s_algorithm
 (defn- reduce-states [fsm]
   (let [accept (accept fsm)
-        smallest #(if (< (count %1) (count %2)) %1 %2)]
+        smallest #(if (<= (count %1) (count %2)) %1 %2)
+        state->id (zipmap (states fsm) (range))]
     (loop [remaining-partitions #{accept}
            partitions #{accept (set/difference (states fsm) accept)}
            remaining-states nil]
+
       (if (empty? remaining-states)
 
         ;; pop partition off, recur with list of candidate states
         (if (empty? remaining-partitions)
-          (->> partitions
-            (map #(zipmap % (repeat (first %))))
-            (apply merge))
+
+          ;; we're done, create a mapping that merges together all the equivalent states
+          (let [state->state' (->> partitions
+                                (map #(zipmap % (repeat (first %))))
+                                (apply merge))
+                state'->states (group-by state->state' (keys state->state'))]
+            (zipmap*
+              (keys state->state')
+              (fn [state]
+                (->> state state->state' state'->states (apply join-states)))))
+
           (let [s (first remaining-partitions)]
             (recur
               (disj remaining-partitions s)
               partitions
-              (map
-                (fn [input]
-                  (set
+              (->> (alphabet fsm)
+                (map
+                  (fn [input]
                     (filter
                       #(contains? s (next-state fsm % input))
                       (states fsm))))
-                (alphabet fsm)))))
+                (remove empty?)
+                (map set)))))
 
         ;; repartition
         (let [a (first remaining-states)
@@ -310,13 +321,16 @@
                                  (if (empty? i)
                                    [b]
                                    (let [d (set/difference b a)]
+
                                      (if (contains? @remaining-partitions b)
                                        (swap! remaining-partitions
                                          #(-> %
                                             (disj b)
                                             (conj i d)))
-                                       (swap! remaining-partitions conj (smallest i d)))
-                                     [i d])))))
+                                       (swap! remaining-partitions
+                                         conj (smallest i d)))
+
+                                     (remove empty? [i d]))))))
                            set)]
           (recur
             @remaining-partitions
@@ -340,7 +354,8 @@
   "Returns a minimized DFA."
   [fsm]
   (let [fsm (prune (->dfa fsm))
-        state->new-state (reduce-states fsm)]
+        state->new-state (reduce-states fsm)
+        new-state->states (group-by state->new-state (keys state->new-state))]
     (dfa
       (state->new-state
         (start fsm))
@@ -348,12 +363,18 @@
         (map state->new-state)
         set)
       (zipmap*
-        (filter #(= % (state->new-state %)) (states fsm))
-        (fn [state]
-          (let [input->state (transitions fsm state)]
-            (zipmap
-              (keys input->state)
-              (map state->new-state (vals input->state)))))))))
+        (keys new-state->states)
+        (fn [new-state]
+          (let [state (-> new-state new-state->states first)]
+            (->> new-state
+              new-state->states
+              (map
+                (fn [state]
+                  (let [input->state (transitions fsm state)]
+                    (zipmap
+                      (keys input->state)
+                      (map state->new-state (vals input->state))))))
+              (apply merge))))))))
 
 (defn final-minimize
   "Removes inputs shadowed by `default`, and marks dead states as `reject`. This should
@@ -401,6 +422,11 @@
   "A basic automaton that takes no inputs, and immediately accepts."
   [& inputs]
   (dfa 0 #{0} {}))
+
+(defn handler-automaton
+  [handler-name]
+  (let [s (->State nil (gensym (name handler-name)) #{} #{handler-name})]
+    (dfa s #{s} {})))
 
 (defn all-automaton
   "A basic automaton that accepts all inputs."

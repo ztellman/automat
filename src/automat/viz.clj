@@ -1,8 +1,12 @@
 (ns automat.viz
   (:require
+    [automat.core]
     [automat.fsm :as a]
     [rhizome.dot :as r]
-    [rhizome.viz :as v]))
+    [rhizome.viz :as v])
+  (:import
+    [automat.core
+     ICompiledAutomaton]))
 
 (defn- pprint-inputs
   "Turns contiguous ranges from a to b into 'a..b'"
@@ -25,43 +29,65 @@
       (apply str))))
 
 (defn fsm->dot
-  ([fsm]
-     (fsm->dot fsm (constantly nil)))
-  ([fsm state->index]
-     (let [accept? (a/accept fsm)
-           adjacent-fn (if (a/deterministic? fsm)
-                         distinct
-                         #(distinct (apply concat %)))
-           src+dst->inputs (fn [src dst]
-                             (->> (a/transitions fsm src)
-                               (filter (if (a/deterministic? fsm)
-                                         #(= dst (val %))
-                                         #(contains? (val %) dst)))
-                               (map key)))]
-       (r/graph->dot
-         (conj (a/states fsm) nil)
-         #(if-not %
-            [(a/start fsm)]
-            (->> % (a/transitions fsm) vals adjacent-fn))
-         :vertical? false
-         :node->descriptor (fn [n]
-                             (if-not n
-                               {:width 0, :shape :plaintext}
-                               {:shape :circle
-                                :peripheries (when (accept? n) 2)
-                                :label (when (number? (state->index n))
-                                         (str (state->index n)))}))
-         :edge->descriptor (fn [src dst]
-                             {:fontname "monospace"
-                              :label (->> (src+dst->inputs src dst)
-                                       (map #(cond
-                                               (= a/epsilon %) "\u03B5"
-                                               (= a/default %) "DEF"
-                                               :else %))
-                                       pprint-inputs)})))))
+  [fsm options]
+  (let [fsm (if (instance? ICompiledAutomaton fsm)
+              (-> fsm meta :fsm)
+              (a/final-minimize fsm))
+        state->index (if (instance? ICompiledAutomaton fsm)
+                       (-> fsm meta :state->index)
+                       (constantly nil))
+        accept? (a/accept fsm)
+        adjacent-fn (if (a/deterministic? fsm)
+                      distinct
+                      #(distinct (apply concat %)))
+        src+dst->inputs (fn [src dst]
+                          (->> (a/transitions fsm src)
+                            (filter (if (a/deterministic? fsm)
+                                      #(= dst (val %))
+                                      #(contains? (val %) dst)))
+                            (map key)))]
+    (r/graph->dot
+      (conj (a/states fsm) nil)
+      #(if-not %
+         [(a/start fsm)]
+         (->> % (a/transitions fsm) vals adjacent-fn))
+      :options options
+      :vertical? false
+      :node->descriptor (fn [n]
+                          (if-not n
+                            {:width 0, :shape :plaintext}
+                            {:shape :circle
+                             :xlabel (comment
+                                       (when-let [handlers (:handlers n)]
+                                         (apply str (interpose ", " handlers))))
+                             :peripheries (when (accept? n) 2)
+                             :label (when (number? (state->index n))
+                                      (str (state->index n)))}))
+      :edge->descriptor (fn [src dst]
+                          {:fontname "monospace"
+                           :label (->> (src+dst->inputs src dst)
+                                    (map #(cond
+                                            (= a/epsilon %) "\u03B5"
+                                            (= a/default %) "DEF"
+                                            :else %))
+                                    pprint-inputs)}))))
 
 (defn view-fsm
+  "Displays the states and transitions of `fsm`."
   ([fsm]
-     (view-fsm fsm (constantly nil)))
-  ([fsm state->index]
-     (-> fsm (fsm->dot state->index) v/dot->image v/view-image)))
+     (view-fsm fsm nil))
+  ([fsm options]
+     (-> fsm 
+       (fsm->dot options)
+       v/dot->image
+       v/view-image)))
+
+(defn save-fsm
+  "Renders the states and transitions of `fsm`, and saves them to `filename`."
+  ([fsm filename]
+     (save-fsm fsm filename nil))
+  ([fsm filename options]
+     (-> fsm 
+       (fsm->dot options)
+       v/dot->image
+       (v/save-image filename))))

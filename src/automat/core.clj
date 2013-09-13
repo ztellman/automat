@@ -7,7 +7,6 @@
   (:require
     [proteus :refer (let-mutable)]
     [automat.fsm :as fsm]
-    [automat.viz :as viz]
     [automat.stream :as stream]
     [primitive-math :as p])
   (:import
@@ -40,6 +39,10 @@
                  (str "'" (pr-str %) "' is not a valid input."))))))
       (apply fsm/concat)
       fsm/minimize)))
+
+(defn $
+  [name]
+  (fsm/handler-automaton name))
 
 (defn ?
   "Returns an automaton that accepts zero or one of the given automata."
@@ -126,14 +129,26 @@
 ;;;
 
 (definterface+ ICompiledAutomaton
-  (start [_] "Returns the initial state for the automaton.")
-  (find [_ state input-sequence])
-  (advance [_ state input-sequence reject-value]))
+  (start [_ initial-value]
+    "Returns a start state for the automaton, with the reduction value set to `initial-value`.")
+  (find [_ state stream]
+    "Searches for a accepted sub-sequence within the stream.  If an input sequence is rejected, begins again at the automaton's
+     start state.  If the input state is `accepted?`, returns immediately.
+
+     If the returned state has `accepted?` set to true, the matching sub-sequence is from `start-index` to `stream-index`. Since
+     no inputs past the match are consumed, this can be safely used with impure functions and input sources.")
+  (advance [_ state stream reject-value]
+    "Advances through the the stream, stopping if the stream is accepted or rejected.  If the input state is `accepted?`,
+     proceeds anyway.  If rejected, `reject-value` is returned in lieu of the new state.
+
+     If an input state is already accepted and `reject-value` is returned, this means that inputs beyond the accepted sub-sequence
+     have been consumed.  As such, be careful when using impure functions and input sources."))
 
 (defrecord+ CompiledAutomatonState
   [^boolean accepted?
    checkpoint
    ^long state-index
+   ^long start-index
    ^long stream-index
    state])
 
@@ -160,6 +175,7 @@
         eof-value (if numeric? Integer/MIN_VALUE ::eof)]
     `(let-mutable [state-reduction## (.state ~compiled-state)]
        (loop [state-index## (.state-index ~compiled-state)
+              start-index## (.start-index ~compiled-state)
               stream-index## (.stream-index ~compiled-state)]
          (let [input## (~(if numeric? '.nextNumericInput '.nextInput)
                         ~input-stream
@@ -175,6 +191,7 @@
                    ~compiled-state
                    (.checkpoint ~compiled-state))
                  state-index##
+                 start-index##
                  stream-index##
                  state-reduction##))
              (let [stream-index## (p/inc stream-index##)]
@@ -203,9 +220,10 @@
                                                           true
                                                           nil
                                                           ~(state->index state)
+                                                          start-index##
                                                           stream-index##
                                                           state-reduction##)
-                                                       `(recur ~(state->index state) stream-index##)))))))))
+                                                       `(recur ~(state->index state) start-index## stream-index##)))))))))
 
                                     :else
                                     ~(if-let [default-state (fsm/next-state fsm state fsm/default)]
@@ -214,9 +232,10 @@
                                             true
                                             nil
                                             ~(state->index default-state)
+                                            start-index##
                                             stream-index##
                                             state-reduction##)
-                                         `(recur ~(state->index default-state) stream-index##))
+                                         `(recur ~(state->index default-state) start-index## stream-index##))
                                        reject-clause))))))))))))))))
 
 (defn- canonicalize-states [fsm]
@@ -240,19 +259,20 @@
   (if (clojure.core/and (= 1 (count args))
         (instance? ICompiledAutomaton (first args)))
     (first args)
-    (let [fsm (fsm/minimize (parse-automata args))
+    (let [fsm (fsm/final-minimize (parse-automata args))
           state->index (canonicalize-states fsm)]
       (with-meta
         (eval
           (unify-gensyms
             `(reify ICompiledAutomaton
-               (start [_#]
+               (start [_# initial-value#]
                  (automat.core.CompiledAutomatonState.
                    ~(contains? (fsm/accept fsm) (fsm/start fsm))
                    nil
                    ~(state->index (fsm/start fsm))
                    0
-                   nil))
+                   0
+                   initial-value#))
                (find [_# state## stream##]
                  (let [stream## (stream/to-stream stream##)]
                    (if (.accepted? ^automat.core.CompiledAutomatonState state##)
@@ -262,7 +282,7 @@
                         (with-meta `stream## {:tag "automat.utils.InputStream"})
                         fsm
                         state->index
-                        `(recur ~(state->index (fsm/start fsm)) stream-index##)))))
+                        `(recur ~(state->index (fsm/start fsm)) stream-index## stream-index##)))))
                (advance [_# state## stream## reject-value##]
                  (let [stream## (stream/to-stream stream##)]
                    ~(consume-form
@@ -274,7 +294,11 @@
         {:fsm fsm
          :state->index state->index}))))
 
-(defn greedy-find [fsm ^CompiledAutomatonState state stream]
+(defn greedy-find
+  "Greedily find the largest possible accepted sub-sequence.  Will only return an `accepted?` state once subsequent
+   inputs have been rejected.  Since this always consumes more inputs than the accepted sub-sequence, be careful when
+   using impure functions or input sources."
+  [fsm ^CompiledAutomatonState state stream]
   (let [stream (stream/to-stream stream)]
     (loop [state state]
       (if (clojure.core/or (.accepted? state) (.checkpoint state))
@@ -294,10 +318,3 @@
           (if (.accepted? state')
             (recur state')
             state'))))))
-
-(defn view [compiled-fsm]
-  (if-not (instance? ICompiledAutomaton compiled-fsm)
-    (IllegalArgumentException. "Can only visualize a compiled FSM.")
-    (let [fsm (-> compiled-fsm meta :fsm)
-          state->index (-> compiled-fsm meta :state->index)]
-      (viz/view-fsm fsm state->index))))
