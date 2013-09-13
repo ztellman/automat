@@ -71,7 +71,7 @@
                                             :else %))
                                     pprint-inputs)}))))
 
-(defn view-fsm
+(defn view
   "Displays the states and transitions of `fsm`."
   ([fsm]
      (view-fsm fsm nil))
@@ -81,7 +81,7 @@
        v/dot->image
        v/view-image)))
 
-(defn save-fsm
+(defn save
   "Renders the states and transitions of `fsm`, and saves them to `filename`."
   ([fsm filename]
      (save-fsm fsm filename nil))

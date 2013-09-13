@@ -1,6 +1,6 @@
 ![](docs/automat.JPG)
 
-Automat is inspired by [Ragel](http://www.complang.org/ragel/).  However, instead of defining a DSL, it allows finite state automata to be built using simple composition of functions.
+Automat is a library for defining and using finite-state automata, inspired by [Ragel](http://www.complang.org/ragel/).  However, instead of defining a DSL, it allows them to be built using simple composition of functions.
 
 These automata, once compiled, are quite fast.  A single transition takes ~5ns, which allows around 200 million transitions a second.  This makes it appropriate for a wide variety of applications, including high-throughput parsing.
 
@@ -15,11 +15,11 @@ A [finite-state machine](http://en.wikipedia.org/wiki/Finite-state_machine) or f
 In Automat, the simplest automaton is simply a vector representing a chain of valid inputs.
 
 ```clj
-> (require '[automat.viz :refer (view-fsm)])
+> (require '[automat.viz :refer (view)])
 nil
 > (require '[automat.core :as a])
 nil
-> (view-fsm [1 2 3])
+> (view [1 2 3])
 ```
 
 ![](docs/readme-0.png)
@@ -27,7 +27,7 @@ nil
 The circle on the left is the start state, and the circle on the right with the double-lined border is the accept state.  Note that the transitions don't have to be numbers:
 
 ```clj
-> (view-fsm [:foo "bar" 'baz])
+> (view [:foo "bar" 'baz])
 ```
 
 ![](docs/readme-1.png)
@@ -35,15 +35,15 @@ The circle on the left is the start state, and the circle on the right with the 
 Each argument to `fsm` can either be an input or another automaton.
 
 ```clj
-> (view-fsm [1 [2 [3]]])
+> (view [1 [2 [3]]])
 ```
 
 ![](docs/readme-0.png)
 
-Notice that this is identical to the first automaton.  We can also combine existing automatons using the operators in `automat.core`:
+Note that this is identical to the first automaton.  We can also combine existing automatons using the operators in `automat.core`:
 
 ```clj
-> (view-fsm (a/or [1 2 3] [1 3]))
+> (view (a/or [1 2 3] [1 3]))
 ```
 
 ![](docs/readme-2.png)
@@ -53,7 +53,7 @@ This represents the **union** of the two automata, and returns an automaton whic
 If we want to accept a range of inputs, we can use `..`:
 
 ```clj
-> (view-fsm [1 (a/.. 2 10) 11])
+> (view [1 (a/.. 2 10) 11])
 ```
 
 ![](docs/readme-3.png)
@@ -61,7 +61,7 @@ If we want to accept a range of inputs, we can use `..`:
 This will accept `1, 2, 11`, `1, 3, 11`, and so on.  If we subsequently want to narrow this, we can use `and`:
 
 ```clj
-> (view-fsm 
+> (view 
     (a/and 
       [1 (a/.. 2 10) 11] 
       (a/or 
@@ -76,7 +76,7 @@ This represents the **intersection** of two automata, in this case giving us an 
 The operators `*`, `+`, and `?` behave as they do in regular expressions:
 
 ```clj
-> (view-fsm [(a/? 1) (a/* 2) (a/+ 3)])
+> (view [(a/? 1) (a/* 2) (a/+ 3)])
 ```
 
 ![](docs/readme-5.png)
@@ -84,7 +84,7 @@ The operators `*`, `+`, and `?` behave as they do in regular expressions:
 The `not` operator is equivalent to the regex `^` operator:
 
 ```clj
-> (view-fsm [1 (a/not 2) 3])
+> (view [1 (a/not 2) 3])
 ```
 
 ![](docs/readme-6.png)
