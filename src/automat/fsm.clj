@@ -19,10 +19,15 @@
    sub-states
    handlers])
 
+(def ^:const epsilon "An input representing no input." ::epsilon)
+(def ^:const default "An input representing a default" ::default)
+(def ^:const reject  "A state representing rejection"  ::rejection)
+
 (defn- state [x]
-  (if (instance? State x)
-    x
-    (->State nil x #{} #{})))
+  (cond
+    (instance? State x) x
+    (identical? x reject) x
+    :else (->State nil x #{} #{})))
 
 (defn- join-states
   ([a]
@@ -42,11 +47,6 @@
   (accept [_] "The set of accept states for the automata.")
   (transitions [_ state] "A map of inputs onto a state (if deterministic) or a set of states (if non-deterministic).")
   (gensym-states [_]))
-
-(def ^:const epsilon "An input representing no input." ::epsilon)
-(def ^:const default "An input representing a default" ::default)
-(def ^:const action  "An input representing an action" ::action)
-(def ^:const reject  "A state representing rejection"  ::rejection)
 
 (defn nfa
   "Creates an NFA."
@@ -282,7 +282,7 @@
     (loop [remaining-partitions #{accept}
            partitions #{accept (set/difference (states fsm) accept)}
            remaining-states nil]
-
+      
       (if (empty? remaining-states)
 
         ;; pop partition off, recur with list of candidate states
@@ -377,21 +377,30 @@
               (apply merge))))))))
 
 (defn final-minimize
-  "Removes inputs shadowed by `default`, and marks dead states as `reject`. This should
-   only be used in conjunction with `compile`."
+  "Removes inputs shadowed by `default`, and marks dead states as `reject`, or removes them
+   altogether if there's no default input. This should only be used in conjunction with
+   `compile`."
   [fsm]
   (let [fsm (minimize fsm)
-        dead (dead-states fsm)]
+        dead? (dead-states fsm)]
     (dfa
       (start fsm)
       (accept fsm)
       (zipmap*
-        (set/difference (states fsm) dead)
+        (set/difference (states fsm) dead?)
         (fn [state]
-          (let [default-state (next-state fsm state default)]
-             (->> (transitions fsm state)
-               (filter (fn [[k v]] (or (= default k) (not= default-state v))))
-               (map (fn [[k v]] [k (if (dead v) reject v)]))
+          (let [default-state (next-state fsm state default)
+                input->state (transitions fsm state)
+                default? (contains? input->state default)]
+             (->> input->state
+               (filter (fn [[k v]]
+                         (and
+                           (or default?
+                             (not (dead? v)))
+                           (or
+                             (= default k)
+                             (not= default-state v)))))
+               (map (fn [[k v]] [k (if (dead? v) reject v)]))
                (into {}))))))))
 
 (defn input-ranges [s]

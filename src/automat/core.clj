@@ -22,7 +22,7 @@
     (clojure.core/or (keyword? x) (number? x)) x
     (char? x) (int x)
     (clojure.core/and (string? x) (= 1 (count x))) (int (first x))
-    :else nil))
+    :else x))
 
 (defn parse-automata [s]
   (let [s (if (sequential? s)
@@ -30,13 +30,10 @@
             [s])]
     (->> s
       (map
-        #(if (instance? IAutomaton %)
-           %
-           (if-let [input (parse-input %)]
-             (fsm/automaton %)
-             (throw
-               (IllegalArgumentException.
-                 (str "'" (pr-str %) "' is not a valid input."))))))
+        #(cond
+           (instance? IAutomaton %) %
+           (vector? %) (parse-automata %)
+           :else (fsm/automaton (parse-input %))))
       (apply fsm/concat)
       fsm/minimize)))
 
@@ -45,14 +42,14 @@
   (fsm/handler-automaton name))
 
 (defn ?
-  "Returns an automaton that accepts zero or one of the given automata."
+  "Returns an automaton that accepts zero or one of the given automaton."
   [& args]
   (->> args
     parse-automata
     fsm/maybe))
 
 (defn +
-  "Returns an automaton that accepts one or more of the given automata."
+  "Returns an automaton that accepts one or more of the given automaton."
   [& args]
   (let [fsm (parse-automata args)]
     (fsm/concat fsm (fsm/kleene fsm))))
@@ -94,8 +91,8 @@
     fsm/complement))
 
 (defn not
-  "Returns the complement of any zero or one-transition automata (i.e. something which accepts
-   a single input or none at all)."
+  "Returns the complement of any zero or one-transition automata.  Equivalent to the character
+   negation `^` operator in regular expressions."
   [& args]
   (let [fsm (parse-automata args)]
     (assert (> 3 (count (fsm/states fsm)))
@@ -122,9 +119,6 @@
   "Returns an automaton which matches any input within the inclusive range of [upper, lower]."
   [lower upper]
   `(#'automat.core/input-range ~lower ~upper))
-
-(defn fsm [& args]
-  (parse-automata args))
 
 ;;;
 
@@ -255,11 +249,10 @@
             (mapcat #(vals (fsm/transitions fsm %)))
             (remove #(contains? state->index %))))))))
 
-(defn compile [& args]
-  (if (clojure.core/and (= 1 (count args))
-        (instance? ICompiledAutomaton (first args)))
-    (first args)
-    (let [fsm (fsm/final-minimize (parse-automata args))
+(defn compile [fsm]
+  (if (instance? ICompiledAutomaton fsm)
+    fsm
+    (let [fsm (fsm/final-minimize (parse-automata fsm))
           state->index (canonicalize-states fsm)]
       (with-meta
         (eval

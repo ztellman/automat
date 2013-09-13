@@ -35,13 +35,13 @@
     [0 1 [1 1]
      1 2 [0 1 1]]
 
-    (a/fsm 1 2 3)
+    [1 2 3]
     [0 3 [1 2 3]
      2 5 [1 1 1 2 3 2 1]]
 
     (a/or
-      (a/fsm 1 2 3)
-      (a/fsm 2 3))
+      [1 2 3]
+      [2 3])
     [0 3 [1 2 3]
      0 2 [2 3]
      1 3 [0 2 3]]
@@ -72,7 +72,7 @@
               (map byte)
               byte-array
               ByteBuffer/wrap)
-        fsm (a/compile (a/fsm 1 2 3 4))]
+        fsm (a/compile [1 2 3 4])]
     (println "find within a 1mb buffer")
     (c/bench
       (a/find fsm (a/start fsm nil) buf))))

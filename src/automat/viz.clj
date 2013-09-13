@@ -1,6 +1,6 @@
 (ns automat.viz
   (:require
-    [automat.core]
+    [automat.core :as c]
     [automat.fsm :as a]
     [rhizome.dot :as r]
     [rhizome.viz :as v])
@@ -32,7 +32,7 @@
   [fsm options]
   (let [fsm (if (instance? ICompiledAutomaton fsm)
               (-> fsm meta :fsm)
-              (a/final-minimize fsm))
+              (-> fsm c/parse-automata a/final-minimize))
         state->index (if (instance? ICompiledAutomaton fsm)
                        (-> fsm meta :state->index)
                        (constantly nil))
@@ -57,18 +57,17 @@
                           (if-not n
                             {:width 0, :shape :plaintext}
                             {:shape :circle
-                             :xlabel (comment
-                                       (when-let [handlers (:handlers n)]
-                                         (apply str (interpose ", " handlers))))
                              :peripheries (when (accept? n) 2)
-                             :label (when (number? (state->index n))
-                                      (str (state->index n)))}))
+                             :label (cond
+                                      (= a/reject n) "REJ"
+                                      (number? (state->index n)) (str (state->index n)))}))
       :edge->descriptor (fn [src dst]
                           {:fontname "monospace"
                            :label (->> (src+dst->inputs src dst)
                                     (map #(cond
                                             (= a/epsilon %) "\u03B5"
                                             (= a/default %) "DEF"
+                                            (string? %) (str \" % \")
                                             :else %))
                                     pprint-inputs)}))))
 
