@@ -22,7 +22,7 @@
       <div id="vars" class="sidebar">
         <h3>Public Vars</h3>
         <ul class="ns-var-links">
-          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-*">*</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%2B">+</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var--%3ECompiledAutomatonState">-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-..">..</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%3F">?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-and">and</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-any">any</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-complement">complement</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-difference">difference</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-map-%3ECompiledAutomatonState">map-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-not">not</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-or">or</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-start">start</a></li>
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-*">*</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%2B">+</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var--%3ECompiledAutomatonState">-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-..">..</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%3F">?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-advance">advance</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-and">and</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-any">any</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-complement">complement</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-difference">difference</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-find">find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-greedy-find">greedy-find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-map-%3ECompiledAutomatonState">map-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-not">not</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-or">or</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-start">start</a></li>
         </ul>
       </div>
     </navigation>
@@ -51,7 +51,7 @@
           </div><div class="public">
             <h3><a id="var--%3ECompiledAutomatonState" class="source var-name" href="/src/automat/core.clj">-&gt;CompiledAutomatonState</a></h3>
             <h4 class="var-type fn" id="var-type">fn</h4>
-            <div class="usage">[accepted? checkpoint state-index stream-index state]</div>
+            <div class="usage">[accepted? checkpoint state-index start-index stream-index state]</div>
             
             
             <div class="doc"><p>Positional factory function for class automat.core.CompiledAutomatonState.</p>
@@ -71,6 +71,18 @@
             
             
             <div class="doc"><p>Returns an automaton that accepts zero or one of the given automata.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-advance" class="source var-name" href="/src/automat/core.clj">advance</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[_ state stream reject-value]</div>
+            
+            
+            <div class="doc"><p>Advances through the the stream, stopping if the stream is accepted or rejected.  If the input state is <code>accepted?</code>,
+proceeds anyway.  If rejected, <code>reject-value</code> is returned in lieu of the new state.</p>
+
+<p>If an input state is already accepted and <code>reject-value</code> is returned, this means that inputs beyond the accepted sub-sequence
+have been consumed.  As such, be careful when using impure functions and input sources.</p>
 </div>
           </div><div class="public">
             <h3><a id="var-and" class="source var-name" href="/src/automat/core.clj">and</a></h3>
@@ -106,6 +118,28 @@
 automata.</p>
 </div>
           </div><div class="public">
+            <h3><a id="var-find" class="source var-name" href="/src/automat/core.clj">find</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[_ state stream]</div>
+            
+            
+            <div class="doc"><p>Searches for a accepted sub-sequence within the stream.  If an input sequence is rejected, begins again at the automaton's
+start state.  If the input state is <code>accepted?</code>, returns immediately.</p>
+
+<p>If the returned state has <code>accepted?</code> set to true, the matching sub-sequence is from <code>start-index</code> to <code>stream-index</code>. Since
+no inputs past the match are consumed, this can be safely used with impure functions and input sources.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-greedy-find" class="source var-name" href="/src/automat/core.clj">greedy-find</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[fsm state stream]</div>
+            
+            
+            <div class="doc"><p>Greedily find the largest possible accepted sub-sequence.  Will only return an <code>accepted?</code> state once subsequent
+inputs have been rejected.  Since this always consumes more inputs than the accepted sub-sequence, be careful when
+using impure functions or input sources.</p>
+</div>
+          </div><div class="public">
             <h3><a id="var-map-%3ECompiledAutomatonState" class="source var-name" href="/src/automat/core.clj">map-&gt;CompiledAutomatonState</a></h3>
             <h4 class="var-type fn" id="var-type">fn</h4>
             <div class="usage">[m__5818__auto__]</div>
@@ -133,10 +167,10 @@ a single input or none at all).</p>
           </div><div class="public">
             <h3><a id="var-start" class="source var-name" href="/src/automat/core.clj">start</a></h3>
             <h4 class="var-type fn" id="var-type">fn</h4>
-            <div class="usage">[_]</div>
+            <div class="usage">[_ initial-value]</div>
             
             
-            <div class="doc"><p>Returns the initial state for the automaton.</p>
+            <div class="doc"><p>Returns a start state for the automaton, with the reduction value set to <code>initial-value</code>.</p>
 </div>
           </div>
         </div>
