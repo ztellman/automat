@@ -2,7 +2,7 @@
 
 Automat is a library for defining and using finite-state automata, inspired by [Ragel](http://www.complang.org/ragel/).  However, instead of defining a DSL, it allows them to be built using simple composition of functions.
 
-These automata, once compiled, are quite fast.  A single transition takes ~5ns, which allows around 200 million transitions a second.  This makes it appropriate for a wide variety of applications, including high-throughput parsing.
+These automata, once compiled, are quite fast.  An array with 100 million elements can be processed in 500ms, giving a mean transition time of 5ns.  However, Automat isn't just for high throughput use cases; it's meant to be useful wherever an FSM is necessary.
 
 ### usage
 

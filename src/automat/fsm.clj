@@ -273,69 +273,58 @@
         (recur (set/union (set dead') dead))
         dead))))
 
-;; assumes DFA
-;; http://en.wikipedia.org/wiki/DFA_minimization#Hopcroft.27s_algorithm
+;; union-find, basically
+(defn- merge-pairs [pairs]
+  (let [m (reduce
+            (fn [m [a b]]
+              (let [x (get m a (get m b a))]
+                (assoc m a x b x)))
+            {}
+            pairs)
+        root (fn root [x]
+               (let [x' (get m x)]
+                 (if (= x x')
+                   x
+                   (recur x'))))]
+    (zipmap* (keys m) root)))
+
 (defn- reduce-states [fsm]
   (let [accept (accept fsm)
-        smallest #(if (<= (count %1) (count %2)) %1 %2)
-        state->id (zipmap (states fsm) (range))]
-    (loop [remaining-partitions #{accept}
-           partitions #{accept (set/difference (states fsm) accept)}
-           remaining-states nil]
-      
-      (if (empty? remaining-states)
-
-        ;; pop partition off, recur with list of candidate states
-        (if (empty? remaining-partitions)
-
-          ;; we're done, create a mapping that merges together all the equivalent states
-          (let [state->state' (->> partitions
-                                (map #(zipmap % (repeat (first %))))
-                                (apply merge))
-                state'->states (group-by state->state' (keys state->state'))]
-            (zipmap*
-              (keys state->state')
-              (fn [state]
-                (->> state state->state' state'->states (apply join-states)))))
-
-          (let [s (first remaining-partitions)]
-            (recur
-              (disj remaining-partitions s)
-              partitions
-              (->> (alphabet fsm)
-                (map
-                  (fn [input]
-                    (filter
-                      #(contains? s (next-state fsm % input))
-                      (states fsm))))
-                (remove empty?)
-                (map set)))))
-
-        ;; repartition
-        (let [a (first remaining-states)
-              remaining-partitions (atom remaining-partitions)
-              partitions (->> partitions
-                           (mapcat
-                             (fn [b]
-                               (let [i (set/intersection a b)]
-                                 (if (empty? i)
-                                   [b]
-                                   (let [d (set/difference b a)]
-
-                                     (if (contains? @remaining-partitions b)
-                                       (swap! remaining-partitions
-                                         #(-> %
-                                            (disj b)
-                                            (conj i d)))
-                                       (swap! remaining-partitions
-                                         conj (smallest i d)))
-
-                                     (remove empty? [i d]))))))
-                           set)]
-          (recur
-            @remaining-partitions
-            partitions
-            (rest remaining-states)))))))
+        states (states fsm)
+        state->index (zipmap states (range))
+        other (set/difference states accept)
+        cartesian #(for [x % y %
+                         :when (< (state->index x) (state->index y))] 
+                     [x y])
+        s (set
+            (clojure.core/concat
+              (cartesian accept)
+              (cartesian other)))]
+    (loop [equivalent s, prev nil]
+      (if (= prev equivalent)
+        (let [state->state' (merge
+                              (zipmap states states)
+                              (merge-pairs equivalent))
+              state'->states (group-by state->state' (keys state->state'))]
+          (zipmap*
+            (keys state->state')
+            (fn [state]
+              (->> state state->state' state'->states (apply join-states)))))
+        (recur
+          (->> equivalent
+            (remove
+              (fn [[a b]]
+                (let [inputs (->
+                               (clojure.core/concat
+                                 (keys (transitions fsm a))
+                                 (keys (transitions fsm b)))
+                               set
+                               (disj default))]
+                  (some
+                    #(not= (next-state fsm a %) (next-state fsm b %))
+                    inputs))))
+            set)
+          equivalent)))))
 
 (defn- prune [fsm]
   (let [fsm (->dfa fsm)
@@ -485,36 +474,37 @@
    (zipmap* (states fsm) #(transitions fsm %))))
 
 (defn- merge-fsms [a b accept-states]
-  (let [a (gensym-states (minimize a))
-        b (gensym-states (minimize b))
+  (let [a (gensym-states (->dfa a))
+        b (gensym-states (->dfa b))
         cartesian-states (for [s-a (states a), s-b (states b)]
                            (join-states s-a s-b))
         inputs (set/union
                  (alphabet a)
                  (alphabet b))]
-    (dfa
-      (join-states (start a) (start b))
-      (accept-states a b)
-      (merge
-        (zipmap* (states a) #(transitions a %))
-        (zipmap* (states b) #(transitions b %))
-        (zipmap*
-          cartesian-states
-          (fn [{:keys [sub-states]}]
-            (let [[s-a s-b] sub-states]
-              (merge
-                (transitions a s-a)
-                (transitions b s-b)
-                (zipmap*
-                  (filter
-                    #(and
-                       (next-state a s-a %)
-                       (next-state b s-b %))
-                    inputs)
-                  (fn [input]
-                    (join-states
-                      (next-state a s-a input)
-                      (next-state b s-b input))))))))))))
+    (prune
+      (dfa
+        (join-states (start a) (start b))
+        (accept-states a b)
+        (merge
+          (zipmap* (states a) #(transitions a %))
+          (zipmap* (states b) #(transitions b %))
+          (zipmap*
+            cartesian-states
+            (fn [{:keys [sub-states]}]
+              (let [[s-a s-b] sub-states]
+                (merge
+                  (transitions a s-a)
+                  (transitions b s-b)
+                  (zipmap*
+                    (filter
+                      #(and
+                         (next-state a s-a %)
+                         (next-state b s-b %))
+                      inputs)
+                    (fn [input]
+                      (join-states
+                        (next-state a s-a input)
+                        (next-state b s-b input)))))))))))))
 
 (defn complement
   "Returns the complement of the given automaton."

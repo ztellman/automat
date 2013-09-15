@@ -74,7 +74,7 @@
 (defn view
   "Displays the states and transitions of `fsm`."
   ([fsm]
-     (view-fsm fsm nil))
+     (view fsm nil))
   ([fsm options]
      (-> fsm 
        (fsm->dot options)
@@ -84,7 +84,7 @@
 (defn save
   "Renders the states and transitions of `fsm`, and saves them to `filename`."
   ([fsm filename]
-     (save-fsm fsm filename nil))
+     (save fsm filename nil))
   ([fsm filename options]
      (-> fsm 
        (fsm->dot options)

@@ -66,13 +66,16 @@
 
     ))
 
+(defn cycle-array [n s]
+  (let [cnt (count s)
+        ^bytes ary (byte-array n)]
+    (dotimes [idx n]
+      (aset ary idx (byte (nth s (rem idx cnt)))))
+    ary))
+
 (deftest ^:benchmark benchmark-find
-  (let [buf (->> (cycle [1 2 3])
-              (take 1e6)
-              (map byte)
-              byte-array
-              ByteBuffer/wrap)
+  (let [ary (cycle-array 1e8 [1 2 3])
         fsm (a/compile [1 2 3 4])]
-    (println "find within a 1mb buffer")
-    (c/bench
-      (a/find fsm (a/start fsm nil) buf))))
+    (println "find within a 100mb buffer")
+    (c/quick-bench
+      (a/find fsm (a/start fsm nil) ary))))

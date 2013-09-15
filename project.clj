@@ -13,7 +13,7 @@
   :test-selectors {:default (complement :benchmark)
                    :benchmark :benchmark}
   :global-vars {*warn-on-reflection* true}
-  :jvm-opts ^:replace ["-server"]
+  :jvm-opts ^:replace ["-server" "-Xmx2g"]
   :java-source-paths ["src"]
   :javac-options ["-target" "1.5" "-source" "1.5"]
   :plugins [[codox "0.6.4"]]

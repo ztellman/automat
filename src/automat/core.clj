@@ -35,7 +35,7 @@
            (vector? %) (parse-automata %)
            :else (fsm/automaton (parse-input %))))
       (apply fsm/concat)
-      fsm/minimize)))
+      #_fsm/minimize)))
 
 (defn $
   [name]
