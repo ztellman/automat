@@ -293,9 +293,8 @@
         states (states fsm)
         state->index (zipmap states (range))
         other (set/difference states accept)
-        cartesian #(for [x % y %
-                         :when (< (state->index x) (state->index y))] 
-                     [x y])
+        tuple #(if (< (state->index %1) (state->index %2)) [%1 %2] [%2 %1])
+        cartesian #(distinct (for [x % y %] (tuple x y)))
         s (set
             (clojure.core/concat
               (cartesian accept)
@@ -311,19 +310,25 @@
             (fn [state]
               (->> state state->state' state'->states (apply join-states)))))
         (recur
-          (->> equivalent
-            (remove
-              (fn [[a b]]
-                (let [inputs (->
-                               (clojure.core/concat
-                                 (keys (transitions fsm a))
-                                 (keys (transitions fsm b)))
-                               set
-                               (disj default))]
-                  (some
-                    #(not= (next-state fsm a %) (next-state fsm b %))
-                    inputs))))
-            set)
+          (reduce 
+            (fn [equivalent [a b]]
+              (let [inputs (->
+                             (clojure.core/concat
+                               (keys (transitions fsm a))
+                               (keys (transitions fsm b)))
+                             set
+                             (disj default))]
+                (if-not (every?
+                            #(let [a' (next-state fsm a %)
+                                   b' (next-state fsm b %)]
+                               (if (and a' b')
+                                 (equivalent (tuple a' b'))
+                                 (= a' b')))
+                            inputs)
+                  (disj equivalent [a b])
+                  equivalent)))
+            equivalent
+            equivalent)
           equivalent)))))
 
 (defn- prune [fsm]
