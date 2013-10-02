@@ -2,7 +2,6 @@
   (:refer-clojure :exclude
     [concat compile find .. * + or and not complement])
   (:use
-    [clojure.pprint]
     [potemkin])
   (:require
     [proteus :refer (let-mutable)]
@@ -306,19 +305,13 @@
                         (let [stream## (stream/to-stream stream##)]
                           (if (.accepted? ^automat.core.CompiledAutomatonState state##)
                             state##
-                            ~(do (pprint (consume-form
+                            ~(consume-form
                                (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
                                (with-meta `stream## {:tag "automat.utils.InputStream"})
                                fsm
                                state->index
                                `(recur ~(state->index (fsm/start fsm)) stream-index## stream-index##)
-                               handler->sym)) (consume-form
-                                (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
-                                (with-meta `stream## {:tag "automat.utils.InputStream"})
-                                fsm
-                                state->index
-                                `(recur ~(state->index (fsm/start fsm)) stream-index## stream-index##)
-                                handler->sym)))))
+                               handler->sym))))
                       (advance [_# state## stream## reject-value##]
                         (let [stream## (stream/to-stream stream##)]
                           ~(consume-form
