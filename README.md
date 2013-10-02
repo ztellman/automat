@@ -73,11 +73,21 @@ This will accept `1, 2, 11`, `1, 3, 11`, and so on.  If we subsequently want to 
 
 This represents the **intersection** of two automata, in this case giving us an automaton that either accepts `1, 2, 11` or `1, 7, 11`.  Note that if the intersection is empty, this will give us an automaton that cannot accept anything.
 
+```clj
+> (view (a/difference (a/.. 1 10) 2 (a/.. 5 6)))
+```
+
+![](docs/readme-7.png)
+
+This represents the **difference** between the automata, in this case an automata that accepts `[1,10]`, less the inputs `2, 5, 6`.  
+
 The operators `*`, `+`, and `?` behave as they do in regular expressions:
 
 ```clj
 > (view [(a/? 1) (a/* 2) (a/+ 3)])
 ```
+
+This gives us an automaton that accepts zero or one `1` inputs, zero or more `2` inputs, and one or more `3` inputs.
 
 ![](docs/readme-5.png)
 

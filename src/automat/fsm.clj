@@ -377,25 +377,26 @@
   [fsm]
   (let [fsm (minimize fsm)
         dead? (dead-states fsm)]
-    (dfa
-      (start fsm)
-      (accept fsm)
-      (zipmap*
-        (set/difference (states fsm) dead?)
-        (fn [state]
-          (let [default-state (next-state fsm state default)
-                input->state (transitions fsm state)
-                default? (contains? input->state default)]
-             (->> input->state
-               (filter (fn [[k v]]
-                         (and
-                           (or default?
-                             (not (dead? v)))
-                           (or
-                             (= default k)
-                             (not= default-state v)))))
-               (map (fn [[k v]] [k (if (dead? v) reject v)]))
-               (into {}))))))))
+    (minimize
+      (dfa
+        (start fsm)
+        (accept fsm)
+        (zipmap*
+          (set/difference (states fsm) dead?)
+          (fn [state]
+            (let [default-state (next-state fsm state default)
+                  input->state (transitions fsm state)
+                  default? (contains? input->state default)]
+              (->> input->state
+                (filter (fn [[k v]]
+                          (and
+                            (or default?
+                              (not (dead? v)))
+                            (or
+                              (= default k)
+                              (not= default-state v)))))
+                (map (fn [[k v]] [k (if (dead? v) reject v)]))
+                (into {})))))))))
 
 (defn input-ranges [s]
   (loop [accumulator [], start nil, end nil, s (sort s)]
