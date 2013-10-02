@@ -22,7 +22,7 @@
       <div id="vars" class="sidebar">
         <h3>Public Vars</h3>
         <ul class="ns-var-links">
-          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-*">*</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%2B">+</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var--%3ECompiledAutomatonState">-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-..">..</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%3F">?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-advance">advance</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-and">and</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-any">any</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-complement">complement</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-difference">difference</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-find">find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-greedy-find">greedy-find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-map-%3ECompiledAutomatonState">map-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-not">not</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-or">or</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-start">start</a></li>
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-*">*</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%2B">+</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var--%3ECompiledAutomatonState">-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-..">..</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%3F">?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-advance">advance</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-and">and</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-any">any</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-compile">compile</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-complement">complement</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-difference">difference</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-find">find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-greedy-find">greedy-find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-map-%3ECompiledAutomatonState">map-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-not">not</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-or">or</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-start">start</a></li>
         </ul>
       </div>
     </navigation>
@@ -99,6 +99,14 @@ have been consumed.  As such, be careful when using impure functions and input s
             
             
             <div class="doc"><p>Returns an automaton that accepts any single input value.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-compile" class="source var-name" href="/src/automat/core.clj">compile</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[fsm]</div><div class="usage">[fsm action-&gt;fn]</div>
+            
+            
+            <div class="doc"><p>Compiles the fsm into something that can be used with <code>find</code>, <code>advance</code>, and <code>greedy-find</code>.</p>
 </div>
           </div><div class="public">
             <h3><a id="var-complement" class="source var-name" href="/src/automat/core.clj">complement</a></h3>
