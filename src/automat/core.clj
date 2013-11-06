@@ -27,18 +27,26 @@
   (let [s (if (sequential? s)
             s
             [s])]
-    (->> s
-      (map
-        #(cond
-           (instance? IAutomaton %) %
-           (vector? %) (parse-automata %)
-           :else (fsm/automaton (parse-input %))))
-      (apply fsm/concat)
-      fsm/minimize)))
+    (if (empty? s)
+      (fsm/empty-automaton)
+      (->> s
+        (map
+          #(cond
+             (instance? IAutomaton %) %
+             (vector? %) (parse-automata %)
+             :else (fsm/automaton (parse-input %))))
+        (apply fsm/concat)
+        fsm/minimize))))
 
 (defn $
+  "Defines a state tag, which can be correlated to a reducer function using `compile`."
   [name]
   (fsm/handler-automaton name))
+
+(defn interleave-$
+  "Applies a state tag to all states within the given automaton."
+  [fsm name]
+  (fsm/add-handler fsm name))
 
 (defn ?
   "Returns an automaton that accepts zero or one of the given automaton."
@@ -164,7 +172,10 @@
 
 (defn- consume-form
   [compiled-state input-stream fsm state->index reject-clause handler->sym]
-  (let [numeric? (every? number? (fsm/alphabet fsm))
+  (let [alphabet (disj (fsm/alphabet fsm) fsm/default)
+        numeric? (clojure.core/and
+                   (clojure.core/not (empty? alphabet))
+                   (every? number? alphabet))
         eof-value (if numeric? Integer/MIN_VALUE ::eof)]
     `(let-mutable [state-reduction## (.state ~compiled-state)]
        (loop [state-index## (.state-index ~compiled-state)
@@ -210,7 +221,7 @@
                                                     
                                                     ;; update state-reduction
                                                     ~@(when-let [handler-syms (->> state
-                                                                                :handlers
+                                                                                fsm/handlers
                                                                                 (map handler->sym)
                                                                                 (remove nil?)
                                                                                 seq)]
@@ -275,7 +286,7 @@
        (let [fsm (fsm/final-minimize (parse-automata fsm))
              state->index (canonicalize-states fsm)
              handler->sym (zipmap
-                            (->> fsm fsm/states (mapcat :handlers) distinct)
+                            (->> fsm fsm/states (mapcat fsm/handlers) distinct)
                             (repeatedly #(gensym "f")))
              handler->fn (->> handler->sym
                            keys

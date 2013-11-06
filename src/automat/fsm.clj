@@ -13,11 +13,39 @@
   (defn- new-generation []
     (swap! cnt inc)))
 
-(defrecord State
+(deftype State
   [generation
    descriptor
    sub-states
-   handlers])
+   handlers]
+  Object
+  (hashCode [_]
+    (p/+
+      (hash generation)
+      (hash descriptor)
+      (hash sub-states)))
+  (equals [_ x]
+    (and
+      (instance? State x)
+      (let [^State x x]
+        (and
+          (= generation (.generation x))
+          (= descriptor (.descriptor x))
+          (= sub-states (.sub-states x)))))))
+
+(defn- conj-generation [^State s gen]
+  (State.
+    (conj (.generation s) gen)
+    (.descriptor s)
+    (.sub-states s)
+    (.handlers s)))
+
+(defn- conj-handler [^State s handler]
+  (State.
+    (.generation s)
+    (.descriptor s)
+    (.sub-states s)
+    (conj (.handlers s) handler)))
 
 (def ^:const epsilon "An input representing no input." ::epsilon)
 (def ^:const default "An input representing a default" ::default)
@@ -27,13 +55,17 @@
   (cond
     (instance? State x) x
     (identical? x reject) x
-    :else (->State nil x #{} #{})))
+    :else (State. nil x #{} #{})))
+
+(defn handlers [^State s]
+  (when (instance? State s)
+    (.handlers s)))
 
 (defn- join-states
   ([a]
      a)
-  ([a b]
-     (->State nil nil [a b] (set/union (:handlers a) (:handlers b))))
+  ([^State a ^State b]
+     (State. nil nil [a b] (set/union (handlers a) (handlers b))))
   ([a b & rest]
      (apply join-states (join-states a b) rest)))
 
@@ -86,8 +118,11 @@
       (transitions [_ state] (get state->input->states state))
       (gensym-states [_]
         (let [gen (new-generation)
-              f #(update-in % [:generation] conj gen)]
-          (nfa (f start) (map f accept) (map-states state->input->states f)))))))
+              f #(conj-generation % gen)]
+          (nfa
+            (f start)
+            (map f accept)
+            (map-states state->input->states f)))))))
 
 (defn dfa
   "Creates a DFA."
@@ -120,8 +155,11 @@
       (transitions [_ state] (get state->input->state state))
       (gensym-states [_]
         (let [gen (new-generation)
-              f #(update-in % [:generation] conj gen)]
-          (dfa (f start) (map f accept) (map-states state->input->state f)))))))
+              f #(conj-generation % gen)]
+          (dfa
+            (f start)
+            (map f accept)
+            (map-states state->input->state f)))))))
 
 ;;;
 
@@ -234,6 +272,22 @@
                  (remove #(contains? state->input->state %))
                  set))
              state->input->state)))))))
+
+(defn add-handler
+  [fsm handler]
+  (let [fsm (->dfa fsm)
+        f #(conj-handler % handler)]
+    (dfa
+      (f (start fsm))
+      (map f (accept fsm))
+      (zipmap
+        (map f (states fsm))
+        (map
+          (fn [s]
+            (zipmap
+              (keys (transitions fsm s))
+              (map f (vals (transitions fsm s)))))
+          (states fsm))))))
 
 ;;;
 
@@ -371,9 +425,8 @@
               (apply merge))))))))
 
 (defn final-minimize
-  "Removes inputs shadowed by `default`, and marks dead states as `reject`, or removes them
-   altogether if there's no default input. This should only be used in conjunction with
-   `compile`."
+  "Marks dead states as `reject`, or removes them altogether if there's no default input.
+   This should only be used in conjunction with `compile`."
   [fsm]
   (let [fsm (minimize fsm)
         dead? (dead-states fsm)]
@@ -389,12 +442,8 @@
                   default? (contains? input->state default)]
               (->> input->state
                 (filter (fn [[k v]]
-                          (and
-                            (or default?
-                              (not (dead? v)))
-                            (or
-                              (= default k)
-                              (not= default-state v)))))
+                          (or default?
+                            (not (dead? v)))))
                 (map (fn [[k v]] [k (if (dead? v) reject v)]))
                 (into {})))))))))
 
@@ -496,8 +545,9 @@
           (zipmap* (states b) #(transitions b %))
           (zipmap*
             cartesian-states
-            (fn [{:keys [sub-states]}]
-              (let [[s-a s-b] sub-states]
+            (fn [^State state]
+              (let [sub-states (.sub-states state)
+                    [s-a s-b] sub-states]
                 (merge
                   (transitions a s-a)
                   (transitions b s-b)
