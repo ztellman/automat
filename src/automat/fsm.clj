@@ -163,6 +163,24 @@
             (map f accept)
             (map-states state->input->state f)))))))
 
+(defn pprint-dfa [fsm]
+  (assert (deterministic? fsm))
+  (let [state->id (zipmap (states fsm) (range))]
+    (println "start: " (state->id (start fsm)))
+    (println "accept: " (map state->id (accept fsm)))
+    (prn
+      (into (sorted-map)
+        (zipmap
+          (map state->id (states fsm))
+          (map
+            (fn [state]
+              (let [t (transitions fsm state)]
+                (into (sorted-map)
+                  (zipmap
+                    (keys t)
+                    (map state->id (vals t))))))
+            (states fsm)))))))
+
 ;;;
 
 (defn- zipmap* [keys f]
@@ -372,8 +390,7 @@
                              (clojure.core/concat
                                (keys (transitions fsm a))
                                (keys (transitions fsm b)))
-                             set
-                             (disj default))]
+                             set)]
                 (if-not (every?
                             #(let [a' (next-state fsm a %)
                                    b' (next-state fsm b %)]

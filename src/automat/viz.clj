@@ -32,7 +32,7 @@
   [fsm options]
   (let [fsm (if (instance? ICompiledAutomaton fsm)
               (-> fsm meta :fsm)
-              (-> fsm c/parse-automata #_a/final-minimize))
+              (-> fsm c/parse-automata a/final-minimize))
         state->index (if (instance? ICompiledAutomaton fsm)
                        (-> fsm meta :state->index)
                        (constantly nil))
