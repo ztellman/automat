@@ -3,6 +3,7 @@
     [clojure.test :refer :all]
     [clojure.set :as set]
     [automat.core :as a]
+    [automat.fsm :as fsm]
     [simple-check.generators :as gen]
     [simple-check.properties :as prop]
     [simple-check.clojure-test :as ct :refer (defspec)]))
@@ -48,6 +49,7 @@
     [actions-a (gen/tuple (gen/sized gen-actions))
      actions-b (gen/tuple (gen/sized gen-actions))
      inputs (gen/list (gen/list (gen/elements [:a :b])))]
+    (fsm/reset-generations)
     (pr '.) (flush)
     (let [fsm-a (a/parse-automata (construct-automaton actions-a))
           fsm-b (a/parse-automata (construct-automaton actions-b))
@@ -75,5 +77,4 @@
           (str "difference: " (pr-str expected) " " (pr-str actual))))
 
       true)))
-
 

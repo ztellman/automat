@@ -11,9 +11,11 @@
 
 (let [cnt (atom 0)]
   (defn- new-generation []
-    (swap! cnt inc)))
+    (swap! cnt inc))
+  (defn reset-generations []
+    (reset! cnt 0)))
 
-(deftype State
+(deftype+ State
   [generation
    descriptor
    sub-states
