@@ -5,6 +5,7 @@
   :dependencies [[rhizome "0.1.9"]
                  [primitive-math "0.1.3"]
                  [potemkin "0.3.4"]
+                 [riddley "0.1.7-SNAPSHOT"]
                  [proteus "0.1.4"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.5.1"]
                                   [reiddraper/simple-check "0.5.2"]

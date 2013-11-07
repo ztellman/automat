@@ -201,6 +201,7 @@
              (let [stream-index## (p/inc stream-index##)]
                (case state-index##
                  ~@(->> state->index
+                     (sort-by val)
                      (mapcat
                        (fn [[state index]]
                          `(~index
