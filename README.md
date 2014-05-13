@@ -135,14 +135,14 @@ If a match is found, `accepted?` will be true, `start-index` will be the point w
 
 ```clj
 > (a/find f (a/start f nil) [1 2 3])
-#automat.core.CompiledAutomatonState{:accepted? true, :checkpoint nil, :state-index 3, :start-index 0, :stream-index 3, :value nil}
+{:accepted? true, :checkpoint nil, :state-index 3, :start-index 0, :stream-index 3, :value nil}
 ```
 
 If `accepted?` is false, the `start-index` will describe where the FSM last restarted.  This state can be passed into `find` with a new stream of inputs.
 
 ```clj
 > (a/find f (a/start f nil) [1 2 1 2])
-#automat.core.CompiledAutomatonState{:accepted? false, :checkpoint nil, :state-index 2, :start-index 2, :stream-index 4, :value nil)}
+{:accepted? false, :checkpoint nil, :state-index 2, :start-index 2, :stream-index 4, :value nil)}
 ```
 
 In either case, `state-index` will describe where we are in the actual compiled automaton.  This can be correlated by calling `automat.viz/view` on a compiled FSM:
@@ -173,7 +173,7 @@ Now, when we call `find`, we will make use of `value` in `(start fsm value)`, wh
 
 ```clj
 > (find f (start f nil]) [1 1 2])
-#automat.core.CompiledAutomatonState{:accepted? true, :checkpoint nil, :state-index 2, :start-index 2, :stream-index 4, :value [1 2]}
+{:accepted? true, :checkpoint nil, :state-index 2, :start-index 2, :stream-index 4, :value [1 2]}
 ```
 
 Because we've specified an action before our first input, we simply define the initial value as `nil`, but other initial values may be useful, depending on the situation.  We also may not wish to manually specify an action between each input.  For this, we can use `interleave-$`:
@@ -187,7 +187,7 @@ Because we've specified an action before our first input, we simply define the i
      :conj conj})
 #'f
 > (find f (start f nil) (range 5))
-#automat.core.CompiledAutomatonState{:accepted? true, :checkpoint nil, :state-index 5, :start-index 0, :stream-index 5, :value [0 1 2 3 4]}
+{:accepted? true, :checkpoint nil, :state-index 5, :start-index 0, :stream-index 5, :value [0 1 2 3 4]}
 ```
 
 Multiple actions can be placed between each input, as long as their order of execution doesn't matter.  Using `$` can be a powerful tool, but it will have performance impacts - for high throughput use cases prefer using the `:start-index` and `:stream-index` values to pull out the input data in bulk.
