@@ -129,7 +129,7 @@ An FSM state can be created using `(a/start compiled-fsm value)`:
 | `checkpoint` | the previous match, only non-nil when used with `greedy-find` |
 | `value` | the current reduce value, explained below |
 
-`find` works similarly to regex matching.  It takes the stream of inputs, which can be a byte-array, `java.nio.Buffer`, `java.io.InputStream`, `java.io.Reader`, or a normal Clojure sequence. It will consume inputs until an accept state is reached, or the end of the stream is reached.  In either case, `find` will return a new state.
+`find` works similarly to regex matching.  It takes the stream of inputs, which can be a byte-array, `java.nio.Buffer`, `java.io.InputStream`, `java.io.Reader`, or a normal Clojure sequence. The inputs in the FSM correspond to elements from these streams, which will be consumed until an accept state is reached, or the end of the stream is reached.  In either case, `find` will return a new state.
 
 If a match is found, `accepted?` will be true, `start-index` will be the point within the stream where the match begins, and `stream-index` will be the point where the match ends.
 
