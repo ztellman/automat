@@ -117,7 +117,7 @@ An FSM state can be created using `(a/start compiled-fsm value)`:
 > (def f (a/compile [1 2 3]))
 #'f
 > (a/start f nil)
-#automat.core.CompiledAutomatonState{:accepted? false, :checkpoint nil, :state-index 0, :start-index 0, :stream-index 0, :value nil}
+{:accepted? false, :checkpoint nil, :state-index 0, :start-index 0, :stream-index 0, :value nil}
 ```
 
 | field | description |
