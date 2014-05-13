@@ -164,7 +164,7 @@
            (fn [i]
              (if (keyword? i)
                `(identical? ~input ~i)
-               `(= ~input ~i)))
+               `(= ~input '~i)))
            non-numbers)
        ~@(map
            (fn [[l u]]

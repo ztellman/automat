@@ -40,7 +40,15 @@ Each argument to `fsm` can either be an input or another automaton.
 
 ![](docs/readme-0.png)
 
-Note that this is identical to the first automaton.  We can also combine existing automatons using the operators in `automat.core`:
+Note that this is identical to the first automaton.  If you want to consume inputs which are vectors without them being flattened, they can be represented as lists:
+
+```clj
+> (view [1 '(2 (3))])
+```
+
+![](docs/readme-0b.png)
+
+We can also combine existing automatons using the operators in `automat.core`:
 
 ```clj
 > (view (a/or [1 2 3] [1 3]))
@@ -63,15 +71,13 @@ This will accept `1, 2, 11`, `1, 3, 11`, and so on.  If we subsequently want to 
 ```clj
 > (view
     (a/and
-      [1 (a/.. 2 10) 11]
-      (a/or
-        [1 2 11]
-        [1 7 11])))
+      [1 (a/.. 2 7) 11]
+      [1 (a/.. 6 12) 11]))
 ```
 
 ![](docs/readme-4.png)
 
-This represents the **intersection** of two automata, in this case giving us an automaton that either accepts `1, 2, 11` or `1, 7, 11`.  Note that if the intersection is empty, this will give us an automaton that cannot accept anything.
+This represents the **intersection** of two automata, in this case giving us an automaton that either accepts `1, 6, 11` or `1, 7, 11`.  Note that if the intersection is empty, this will give us an automaton that cannot accept anything.
 
 ```clj
 > (view (a/difference (a/.. 1 10) 2 (a/.. 5 6)))
@@ -91,7 +97,7 @@ This gives us an automaton that accepts zero or one `1` inputs, zero or more `2`
 
 ![](docs/readme-5.png)
 
-The `not` operator is equivalent to the regex `^` operator:
+The `not` operator is equivalent to the regex `^` flag for negating character classes:
 
 ```clj
 > (view [1 (a/not 2) 3])
@@ -99,7 +105,7 @@ The `not` operator is equivalent to the regex `^` operator:
 
 ![](docs/readme-6.png)
 
-In this diagram, `DEF` represents the default transition (in this case, anything but `2`), and `REJ` represents a rejection state.
+In this diagram, `DEF` represents the default transition (in this case, anything but `2`), and `REJ` represents a rejection state.  The `DEF` transition will consume the input, but the `REJ` transition will not.
 
 ### using an FSM
 
@@ -109,7 +115,7 @@ Once we've defined an FSM, we can `compile` it:
 (a/compile [1 2 3])
 ```
 
-This will optimize the FSM, emit code that processes it, and call `eval` on it.  The resulting compiled FSM can be interacted with via `find` and `greedy-find`.  Each function takes a compiled FSM, an FSM state, and a stream of inputs.
+This will optimize the FSM, emit code that processes it, and call `eval` on it.  The resulting compiled FSM can be interacted with via `find` and `greedy-find`.  Each function takes a compiled FSM, an FSM state, and a stream of inputs.  Both are thread-safe, and multiple calls to `find` on the same compiled FSM can be made at the same time.
 
 An FSM state can be created using `(a/start compiled-fsm value)`:
 
@@ -166,13 +172,13 @@ To do this, we use the `$` operator, which represents a reduce action between st
 When we compile, we can specify functions that correpsond to these action keywords:
 
 ```clj
-> (def f (compile fsm {:clear (constantly []), :conj conj}))
+> (def f (a/compile fsm {:clear (constantly []), :conj conj}))
 ```
 
 Now, when we call `find`, we will make use of `value` in `(start fsm value)`, which specifies the initial value that will be passed through our reducer functions:
 
 ```clj
-> (find f (start f nil]) [1 1 2])
+> (a/find f (a/start f nil]) [1 1 2])
 {:accepted? true, :checkpoint nil, :state-index 2, :start-index 2, :stream-index 4, :value [1 2]}
 ```
 
@@ -182,11 +188,12 @@ Because we've specified an action before our first input, we simply define the i
 > (def fsm (list* ($ :clear) (range 5)))
 #'fsm
 > (def f
-    (interleave-$ fsm :conj)
-    {:clear (constantly [])
-     :conj conj})
+    (a/compile
+      (a/interleave-$ fsm :conj)
+      {:clear (constantly [])
+       :conj conj}))
 #'f
-> (find f (start f nil) (range 5))
+> (a/find f (a/start f nil) (range 5))
 {:accepted? true, :checkpoint nil, :state-index 5, :start-index 0, :stream-index 5, :value [0 1 2 3 4]}
 ```
 
