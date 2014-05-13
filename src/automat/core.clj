@@ -331,7 +331,10 @@
                           0
                           initial-value#))
                       (find [_# state## stream##]
-                        (let [stream## (stream/to-stream stream##)]
+                        (let [state## (if (instance? automat.core.CompiledAutomatonState state##)
+                                        state##
+                                        (map->CompiledAutomatonState state##))
+                              stream## (stream/to-stream stream##)]
                           (if (.accepted? ^automat.core.CompiledAutomatonState state##)
                             state##
                             ~(consume-form
@@ -346,7 +349,10 @@
                                       (recur ~start-index (p/dec stream-index##) (p/dec stream-index##) input##))))
                                handler->sym))))
                       (advance [_# state## stream## reject-value##]
-                        (let [stream## (stream/to-stream stream##)]
+                        (let [state## (if (instance? automat.core.CompiledAutomatonState state##)
+                                        state##
+                                        (map->CompiledAutomatonState state##))
+                              stream## (stream/to-stream stream##)]
                           ~(consume-form
                              (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
                              (with-meta `stream## {:tag "automat.utils.InputStream"})

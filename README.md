@@ -5,8 +5,10 @@ Automat is a library for defining and using finite-state automata, inspired by [
 These automata, once compiled, are quite fast.  An array with 100 million elements can be processed in 500ms, giving a mean transition time of 5ns.  However, Automat isn't just for high throughput use cases; it's meant to be useful wherever an FSM is necessary.
 
 ```clj
-[automat "0.1.0-SNAPSHOT"]
+[automat "0.1.0"]
 ```
+
+Full documentation can be found [here](http://ideolalia.com/automat).
 
 ### defining an FSM
 
@@ -105,7 +107,7 @@ The `not` operator is equivalent to the regex `^` flag for negating character cl
 
 ![](docs/readme-6.png)
 
-In this diagram, `DEF` represents the default transition (in this case, anything but `2`), and `REJ` represents a rejection state.  The `DEF` transition will consume the input, but the `REJ` transition will not.
+In this diagram, `DEF` represents the default transition (in this case, anything but `2`), and `REJ` represents a rejection state.  The `DEF` transition will consume the input, but the transition to the `REJ` state will not.
 
 ### using an FSM
 
