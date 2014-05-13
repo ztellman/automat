@@ -42,17 +42,17 @@
     (if (.isArray (class x))
       (condp instance? x
         byte-array-class
-        (Wrappers$ShortBufferWrapper. (ByteBuffer/wrap x))
-        
+        (Wrappers$ByteBufferWrapper. (ByteBuffer/wrap x))
+
         short-array-class
         (Wrappers$ShortBufferWrapper. (ShortBuffer/wrap x))
-        
+
         int-array-class
         (Wrappers$IntBufferWrapper. (IntBuffer/wrap x))
-        
+
         long-array-class
         (Wrappers$LongBufferWrapper. (LongBuffer/wrap x)))
-      
+
       (let [s (atom (seq x))]
         (reify InputStream
           (nextInput [_ eof]

@@ -30,6 +30,7 @@
     (if (empty? s)
       (fsm/empty-automaton)
       (->> s
+        (cons (fsm/empty-automaton))
         (map
           #(cond
              (instance? IAutomaton %) %
@@ -46,7 +47,9 @@
 (defn interleave-$
   "Applies a state tag to all states within the given automaton."
   [fsm name]
-  (fsm/add-handler fsm name))
+  (-> fsm
+    parse-automata
+    (fsm/add-handler name)))
 
 (defn ?
   "Returns an automaton that accepts zero or one of the given automaton."
@@ -151,7 +154,7 @@
    ^long state-index
    ^long start-index
    ^long stream-index
-   state])
+   value])
 
 (defn- inputs-predicate [input to-match]
   (let [non-numbers (remove number? to-match)
@@ -176,42 +179,56 @@
         numeric? (clojure.core/and
                    (clojure.core/not (empty? alphabet))
                    (every? number? alphabet))
-        eof-value (if numeric? Integer/MIN_VALUE ::eof)]
-    `(let-mutable [state-reduction## (.state ~compiled-state)]
-       (loop [state-index## (.state-index ~compiled-state)
-              start-index## (.start-index ~compiled-state)
-              stream-index## (.stream-index ~compiled-state)]
-         (let [input## (~(if numeric? '.nextNumericInput '.nextInput)
-                        ~input-stream
-                        ~eof-value)]
-           (if ~(if numeric?
-                  `(== ~eof-value input##)
-                  `(identical? ~eof-value input##))
-             (if (== stream-index## (.stream-index ~compiled-state))
-               ~compiled-state
-               (automat.core.CompiledAutomatonState.
-                 false
-                 (if (.accepted? ~compiled-state)
-                   ~compiled-state
-                   (.checkpoint ~compiled-state))
-                 state-index##
-                 start-index##
-                 stream-index##
-                 state-reduction##))
-             (let [stream-index## (p/inc stream-index##)]
-               (case state-index##
-                 ~@(->> state->index
-                     (sort-by val)
-                     (mapcat
-                       (fn [[state index]]
-                         `(~index
-                            ~(let [input->state (fsm/transitions fsm state)
-                                   state->inputs (->> input->state
-                                                   keys
-                                                   (group-by input->state))]
-                               (if (empty? state->inputs)
-                                 reject-clause
-                                 `(cond
+        eof-value (if numeric? Integer/MIN_VALUE ::eof)
+        start-index (state->index (fsm/start fsm))
+        next-input `(~(if numeric? '.nextNumericInput '.nextInput)
+                     ~input-stream
+                     ~eof-value)]
+    `(let-mutable [value##   (.value ~compiled-state)]
+       (loop [state-index##  (.state-index ~compiled-state)
+              start-index##  (.start-index ~compiled-state)
+              stream-index## (.stream-index ~compiled-state)
+              input##        ~next-input]
+         (if ~(if numeric?
+                `(== ~eof-value input##)
+                `(identical? ~eof-value input##))
+           (if (== stream-index## (.stream-index ~compiled-state))
+             ~compiled-state
+             (automat.core.CompiledAutomatonState.
+               false
+               (if (.accepted? ~compiled-state)
+                 ~compiled-state
+                 (.checkpoint ~compiled-state))
+               state-index##
+               start-index##
+               stream-index##
+               value##))
+           (let [stream-index## (p/inc stream-index##)]
+             (case state-index##
+               ~@(->> state->index
+                   (sort-by val)
+                   (mapcat
+                     (fn [[state index]]
+                       `(~index
+                          ~(let [input->state (fsm/transitions fsm state)
+                                 state->inputs (->> input->state
+                                                 keys
+                                                 (group-by input->state))]
+                             (if (empty? state->inputs)
+                               (reject-clause next-input)
+                               `(do
+                                  ~@(when (= index start-index)
+                                      (when-let [handler-syms (->> state
+                                                                fsm/handlers
+                                                                (map handler->sym)
+                                                                (remove nil?)
+                                                                seq)]
+                                        `((set! value##
+                                            ~(reduce
+                                               (fn [form fn] `(~fn ~form input##))
+                                               `value##
+                                               handler-syms)))))
+                                  (cond
                                     ~@(->> state->inputs
                                         (mapcat
                                           (fn [[state inputs]]
@@ -219,31 +236,31 @@
                                               (when (clojure.core/not (empty? inputs))
                                                 `(~(inputs-predicate `input## inputs)
                                                   (do
-                                                    
-                                                    ;; update state-reduction
+
+                                                    ;; update value
                                                     ~@(when-let [handler-syms (->> state
                                                                                 fsm/handlers
                                                                                 (map handler->sym)
                                                                                 (remove nil?)
                                                                                 seq)]
-                                                        `((set! state-reduction##
+                                                        `((set! value##
                                                             ~(reduce
                                                                (fn [form fn] `(~fn ~form input##))
-                                                               `state-reduction##
+                                                               `value##
                                                                handler-syms))))
 
                                                     ;; recur to next state, or return accepted state
-                                                     ~(if (= fsm/reject state)
-                                                        reject-clause
-                                                        (if ((fsm/accept fsm) state)
-                                                          `(automat.core.CompiledAutomatonState.
-                                                             true
-                                                             nil
-                                                             ~(state->index state)
-                                                             start-index##
-                                                             stream-index##
-                                                             state-reduction##)
-                                                          `(recur ~(state->index state) start-index## stream-index##))))))))))
+                                                    ~(if (= fsm/reject state)
+                                                       (reject-clause next-input)
+                                                       (if ((fsm/accept fsm) state)
+                                                         `(automat.core.CompiledAutomatonState.
+                                                            true
+                                                            nil
+                                                            ~(state->index state)
+                                                            start-index##
+                                                            stream-index##
+                                                            value##)
+                                                         `(recur ~(state->index state) start-index## stream-index## ~next-input))))))))))
 
                                     :else
                                     ~(if-let [default-state (fsm/next-state fsm state fsm/default)]
@@ -254,9 +271,9 @@
                                             ~(state->index default-state)
                                             start-index##
                                             stream-index##
-                                            state-reduction##)
-                                         `(recur ~(state->index default-state) start-index## stream-index##))
-                                       reject-clause))))))))))))))))
+                                            value##)
+                                         `(recur ~(state->index default-state) start-index## stream-index## ~next-input))
+                                       (reject-clause next-input)))))))))))))))))
 
 (defn- canonicalize-states [fsm]
   (loop [state->index {}, to-search [(fsm/start fsm)]]
@@ -275,7 +292,7 @@
             (mapcat #(vals (fsm/transitions fsm %)))
             (remove #(contains? state->index %))))))))
 
-(def ^:private ^:dynamic *fns*)
+(def ^:dynamic *fns*)
 
 (defn compile
   "Compiles the fsm into something that can be used with `find`, `advance`, and `greedy-find`."
@@ -304,7 +321,7 @@
                             (fn [[handler sym]]
                               [sym `(*fns* ~handler)])
                             handler->sym)]
-                    (reify ICompiledAutomaton
+                    (reify automat.core.ICompiledAutomaton
                       (start [_# initial-value#]
                         (automat.core.CompiledAutomatonState.
                           ~(contains? (fsm/accept fsm) (fsm/start fsm))
@@ -322,7 +339,11 @@
                                (with-meta `stream## {:tag "automat.utils.InputStream"})
                                fsm
                                state->index
-                               `(recur ~(state->index (fsm/start fsm)) stream-index## stream-index##)
+                               (fn [next-input]
+                                 (let [start-index (state->index (fsm/start fsm))]
+                                   `(if (p/== ~start-index state-index##)
+                                      (recur ~start-index stream-index## stream-index## ~next-input)
+                                      (recur ~start-index (p/dec stream-index##) (p/dec stream-index##) input##))))
                                handler->sym))))
                       (advance [_# state## stream## reject-value##]
                         (let [stream## (stream/to-stream stream##)]
@@ -331,7 +352,7 @@
                              (with-meta `stream## {:tag "automat.utils.InputStream"})
                              fsm
                              state->index
-                             `reject-value##
+                             (fn [_] `reject-value##)
                              handler->sym))))))))
            {:fsm fsm
             :state->index state->index})))))
@@ -350,7 +371,7 @@
             (if (.accepted? state)
               state
               (.checkpoint state))
-            
+
             (identical? state state')
             state
 
