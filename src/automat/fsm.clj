@@ -79,12 +79,13 @@
   (alphabet [_] "The set of possible inputs for the automata.")
   (start [_] "The start state for the automata.")
   (accept [_] "The set of accept states for the automata.")
-  (transitions [_ state] "A map of inputs onto a state (if deterministic) or a set of states (if non-deterministic).")
+  (input->state [_ state] "A map of inputs onto a state (if deterministic) or a set of states (if non-deterministic).")
+  (input->handlers [_ state] "A map of inputs onto handlers for a given input")
   (gensym-states [_]))
 
 (defn nfa
   "Creates an NFA."
-  [start accept state->input->states]
+  [start accept state->input->states state->input->handlers]
 
   (assert
       (every? set? (->> state->input->states vals (mapcat vals)))
@@ -104,31 +105,36 @@
         start (state start)
         accept (set (map state accept))
         state->input->states (map-states state->input->states state)
+        state->input->handlers (comment
+                                 (zipmap
+                                  (map state (keys state->input->handlers))
+                                  (vals state->input->handlers)))
         states (set/union
                  #{start}
                  accept
                  (->> state->input->states keys set)
                  (->> state->input->states vals (mapcat vals) (apply set/union)))
         alphabet (apply set/union (->> state->input->states vals (map keys) (map set)))]
-
     (reify IAutomaton
       (deterministic? [_] false)
       (start [_] start)
       (accept [_] accept)
       (states [_] states)
       (alphabet [_] alphabet)
-      (transitions [_ state] (get state->input->states state))
+      (input->state [_ state] (get state->input->states state))
+      (input->handlers [_ state] (get state->input->handlers state))
       (gensym-states [_]
         (let [gen (new-generation)
               f #(conj-generation % gen)]
           (nfa
             (f start)
             (map f accept)
-            (map-states state->input->states f)))))))
+            (map-states state->input->states f)
+            state->input->handlers))))))
 
 (defn dfa
   "Creates a DFA."
-  [start accept state->input->state]
+  [start accept state->input->state state->input->handlers]
   (let [map-states (fn [state->input->state f]
                      (zipmap
                        (map f (keys state->input->state))
@@ -141,6 +147,9 @@
         start (state start)
         accept (set (map state accept))
         state->input->state (map-states state->input->state state)
+        state->input->handlers (comment (zipmap
+                                  (map state (keys state->input->handlers))
+                                  (vals state->input->handlers)))
         states (set/union
                  #{start}
                  accept
@@ -154,14 +163,16 @@
       (accept [_] accept)
       (states [_] states)
       (alphabet [_] alphabet)
-      (transitions [_ state] (get state->input->state state))
+      (input->state [_ state] (get state->input->state state))
+      (input->handlers [_ state] (get state->input->handlers state))
       (gensym-states [_]
         (let [gen (new-generation)
               f #(conj-generation % gen)]
           (dfa
             (f start)
             (map f accept)
-            (map-states state->input->state f)))))))
+            (map-states state->input->state f)
+            state->input->handlers))))))
 
 (defn pprint-dfa [fsm]
   (assert (deterministic? fsm))
@@ -174,11 +185,12 @@
           (map state->id (states fsm))
           (map
             (fn [state]
-              (let [t (transitions fsm state)]
+              (let [t (input->state fsm state)
+                    h (input->handlers fsm state)]
                 (into (sorted-map)
                   (zipmap
                     (keys t)
-                    (map state->id (vals t))))))
+                    (map #(vector (h %) (state->id %)) (vals t))))))
             (states fsm)))))))
 
 ;;;
@@ -195,7 +207,7 @@
   [nfa state input]
   (assert (not (deterministic? nfa)))
   (loop [traversed #{}
-         pending (-> nfa (transitions state) (get input))]
+         pending (-> nfa (input->state state) (get input))]
     (if (empty? pending)
       traversed
       (let [state     (first pending)
@@ -203,7 +215,7 @@
             pending   (set/union
                         (disj pending state)
                         (set/difference
-                          (-> nfa (transitions state) (get epsilon))
+                          (-> nfa (input->state state) (get epsilon))
                           traversed))]
         (recur traversed pending)))))
 
@@ -211,8 +223,8 @@
   "Returns the next state given a state and input. Assumes a DFA."
   [dfa state input]
   (assert (deterministic? dfa))
-  (get (transitions dfa state) input
-    (get (transitions dfa state) default)))
+  (get (input->state dfa state) input
+    (get (input->state dfa state) default)))
 
 (defn ->nfa
   "Converts the given automaton into a non-deterministic finite automata. If it's already
@@ -230,7 +242,8 @@
             (zipmap
               (keys input->state)
               (map #(set [%]) (vals input->state))))
-          (map #(transitions fsm %) (states fsm)))))))
+          (map #(input->state fsm %) (states fsm))))
+      (zipmap* (states fsm) #(input->handlers fsm %)))))
 
 (defn ->dfa
   "Converts the given automaton into a deterministic finite automata. If it's already
@@ -244,7 +257,7 @@
       (loop [explore #{start-state}
              state->input->state {}]
        (if (empty? explore)
-          
+
          ;; we're done, wrap it up
          (let [accept (->> state->input->state
                         vals
@@ -262,13 +275,17 @@
                    (zipmap
                      (keys input->state)
                      (map #(apply join-states %) (vals input->state))))
-                 (vals state->input->state)))))
-          
+                 (vals state->input->state)))
+
+             ;; TODO: minimized handlers
+             nil
+             ))
+
          (let [states (first explore)
 
                ;; all valid inputs for the compound state
                inputs
-               (-> (mapcat #(keys (transitions fsm %)) states)
+               (-> (mapcat #(keys (input->state fsm %)) states)
                  set
                  (disj epsilon))
 
@@ -297,17 +314,21 @@
   [fsm handler]
   (let [fsm (->dfa fsm)
         f #(conj-handler % handler)]
-    (dfa
-      (f (start fsm))
-      (map f (accept fsm))
-      (zipmap
-        (map f (states fsm))
-        (map
-          (fn [s]
-            (zipmap
-              (keys (transitions fsm s))
-              (map f (vals (transitions fsm s)))))
-          (states fsm))))))
+    (->dfa
+      (nfa
+        (f (start fsm))
+        (map f (accept fsm))
+        (zipmap
+          (map f (states fsm))
+          (map
+            (fn [s]
+              (zipmap
+                (keys (input->state fsm s))
+                (map f (vals (input->state fsm s)))))
+            (states fsm)))
+        (zipmap
+          (map f (states fsm))
+          (map #(input->handlers fsm %) (states fsm)))))))
 
 ;;;
 
@@ -320,7 +341,7 @@
     (if (empty? explore)
       reachable
       (let [explore' (->> explore
-                       (map #(->> % (transitions fsm) vals set))
+                       (map #(->> % (input->state fsm) vals set))
                        (apply set/union))]
         (recur
           (set/union reachable explore')
@@ -335,7 +356,7 @@
       (if-let [dead' (seq
                        (filter
                          (fn [state]
-                           (-> (transitions fsm state)
+                           (-> (input->state fsm state)
                              vals
                              set
                              (disj state)
@@ -384,12 +405,12 @@
             (fn [state]
               (->> state state->state' state'->states (apply join-states)))))
         (recur
-          (reduce 
+          (reduce
             (fn [equivalent [a b]]
               (let [inputs (->
                              (clojure.core/concat
-                               (keys (transitions fsm a))
-                               (keys (transitions fsm b)))
+                               (keys (input->state fsm a))
+                               (keys (input->state fsm b)))
                              set)]
                 (if-not (every?
                             #(let [a' (next-state fsm a %)
@@ -413,9 +434,10 @@
       (zipmap*
         (filter reachable? (states fsm))
         (fn [state]
-          (->> (transitions fsm state)
+          (->> (input->state fsm state)
             (filter #(reachable? (val %)))
-            (into {})))))))
+            (into {}))))
+      nil)))
 
 (defn minimize
   "Returns a minimized DFA."
@@ -437,11 +459,19 @@
               new-state->states
               (map
                 (fn [state]
-                  (let [input->state (transitions fsm state)]
+                  (let [input->state (input->state fsm state)]
                     (zipmap
                       (keys input->state)
                       (map state->new-state (vals input->state))))))
-              (apply merge))))))))
+              (apply merge)))))
+      (zipmap*
+        (keys new-state->states)
+        (fn [new-state]
+          (let [state (-> new-state new-state->states first)]
+            (->> new-state
+              new-state->states
+              (map #(input->handlers fsm %))
+              (apply merge-with set/union))))))))
 
 (defn final-minimize
   "Marks dead states as `reject`, or removes them altogether if there's no default input.
@@ -457,14 +487,17 @@
           (set/difference (states fsm) dead?)
           (fn [state]
             (let [default-state (next-state fsm state default)
-                  input->state (transitions fsm state)
+                  input->state (input->state fsm state)
                   default? (contains? input->state default)]
               (->> input->state
                 (filter (fn [[k v]]
                           (or default?
                             (not (dead? v)))))
                 (map (fn [[k v]] [k (if (dead? v) reject v)]))
-                (into {})))))))))
+                (into {})))))
+        (zipmap*
+          (set/difference (states fsm) dead?)
+          #(input->handlers fsm %))))))
 
 (defn input-ranges [s]
   (loop [accumulator [], start nil, end nil, s (sort s)]
@@ -476,10 +509,10 @@
         (cond
           (and end (= (inc end) x))
           (recur accumulator start x (rest s))
-          
+
           end
           (recur (conj accumulator [start end]) x x (rest s))
-          
+
           :else
           (recur accumulator x x (rest s)))))))
 
@@ -488,22 +521,22 @@
 (defn automaton
   "A basic automaton that will accept any of the given inputs."
   [& inputs]
-  (dfa 0 #{1} {0 (zipmap inputs (repeat 1))}))
+  (dfa 0 #{1} {0 (zipmap inputs (repeat 1))} nil))
 
 (defn empty-automaton
   "A basic automaton that takes no inputs, and immediately accepts."
   [& inputs]
-  (dfa 0 #{0} {}))
+  (dfa 0 #{0} {} nil))
 
 (defn handler-automaton
   [handler-name]
   (let [s (->State nil (gensym (name handler-name)) #{} #{handler-name})]
-    (dfa s #{s} {})))
+    (dfa s #{s} {} nil)))
 
 (defn all-automaton
   "A basic automaton that accepts all inputs."
   []
-  (dfa 0 #{1} {0 {default 1}}))
+  (dfa 0 #{1} {0 {default 1}} nil))
 
 (defn concat
   "Concatenate one or more automatons together."
@@ -514,15 +547,18 @@
      (let [a (-> a ->dfa gensym-states ->nfa)
            b (-> b ->dfa gensym-states ->nfa)
            state->input->states (merge
-                                  (zipmap* (states a) #(transitions a %))
-                                  (zipmap* (states b) #(transitions b %)))]
+                                  (zipmap* (states a) #(input->state a %))
+                                  (zipmap* (states b) #(input->state b %)))]
        (nfa
          (start a)
          (accept b)
          (reduce
            #(assoc-in %1 [%2 epsilon] #{(start b)})
            state->input->states
-           (accept a)))))
+           (accept a))
+         (zipmap*
+           (clojure.core/concat (states a) (states b))
+           (fn [s] (or (input->handlers a s) (input->handlers b s)))))))
   ([a b & rest]
      (apply concat (concat a b) rest)))
 
@@ -536,8 +572,9 @@
       (conj (accept fsm) (start fsm))
       (reduce
         #(assoc-in %1 [%2 epsilon] #{(start fsm)})
-        (zipmap* (states fsm) #(transitions fsm %))
-        (accept fsm)))))
+        (zipmap* (states fsm) #(input->state fsm %))
+        (accept fsm))
+      (zipmap* (states fsm) #(input->handlers fsm %)))))
 
 (defn maybe
   "Accepts one or zero of the given automaton."
@@ -545,7 +582,7 @@
   ((if (deterministic? fsm) dfa nfa)
    (start fsm)
    (conj (accept fsm) (start fsm))
-   (zipmap* (states fsm) #(transitions fsm %))))
+   (zipmap* (states fsm) #(input->state fsm %))))
 
 (defn- merge-fsms [a b accept-states]
   (let [a (gensym-states (->dfa a))
@@ -560,16 +597,16 @@
         (join-states (start a) (start b))
         (accept-states a b)
         (merge
-          (zipmap* (states a) #(transitions a %))
-          (zipmap* (states b) #(transitions b %))
+          (zipmap* (states a) #(input->state a %))
+          (zipmap* (states b) #(input->state b %))
           (zipmap*
             cartesian-states
             (fn [^State state]
               (let [sub-states (.sub-states state)
                     [s-a s-b] sub-states]
                 (merge
-                  (transitions a s-a)
-                  (transitions b s-b)
+                  (input->state a s-a)
+                  (input->state b s-b)
                   (zipmap*
                     (filter
                       #(and
@@ -579,7 +616,9 @@
                     (fn [input]
                       (join-states
                         (next-state a s-a input)
-                        (next-state b s-b input)))))))))))))
+                        (next-state b s-b input)))))))))
+        ;; TODO: figure this out
+        nil))))
 
 (defn complement
   "Returns the complement of the given automaton."
@@ -587,7 +626,7 @@
   ((if (deterministic? fsm) dfa nfa)
    (start fsm)
    (set/difference (states fsm) (accept fsm))
-   (zipmap* (states fsm) #(transitions fsm %))))
+   (zipmap* (states fsm) #(input->state fsm %))))
 
 (defn intersection
   "Returns the intersection of multiple automata."
@@ -634,4 +673,3 @@
                (join-states s-a s-b)))))))
   ([a b & rest]
      (apply difference (difference a b) rest)))
-

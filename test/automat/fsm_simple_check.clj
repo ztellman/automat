@@ -16,7 +16,7 @@
       (if (empty? inputs)
         (contains? (a/accept fsm) state)
         (let [i (first inputs)]
-          (if-let [state' (-> fsm (a/transitions state) (get i))]
+          (if-let [state' (-> fsm (a/input->state state) (get i))]
             (recur state' (rest inputs))
             false))))))
 

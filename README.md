@@ -201,7 +201,7 @@ Because we've specified an action before our first input, we simply define the i
 
 Multiple actions can be placed between each input, as long as their order of execution doesn't matter.  If the same action is listed multiple times on the same transition, or this occurs via use of `and`, `or`, or other set theoretic operators, it will only be invoked once.
 
-Using `$` can be a powerful tool, but it will have performance impacts - for high throughput use cases prefer using the `:start-index` and `:stream-index` values to pull out the input data in bulk.
+Using `$` can be a powerful tool, but it will have a performance impact - for high throughput use cases prefer using the `:start-index` and `:stream-index` values to pull out the input data in bulk.
 
 When defining patterns that are subsets of each other, such as `(or [1 2] [1 2 3])`, `find` will always return upon matching the shortest of the two.  If we want to match on the longest, we can use `greedy-find` instead.  Note that `greedy-find` will always consume at least one more input than it needs for the match, which means that reduce actions used with it must not have side effects.
 

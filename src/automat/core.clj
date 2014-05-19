@@ -210,7 +210,7 @@
                    (mapcat
                      (fn [[state index]]
                        `(~index
-                          ~(let [input->state (fsm/transitions fsm state)
+                          ~(let [input->state (fsm/input->state fsm state)
                                  state->inputs (->> input->state
                                                  keys
                                                  (group-by input->state))]
@@ -289,7 +289,7 @@
         (recur
           state->index
           (->> to-search
-            (mapcat #(vals (fsm/transitions fsm %)))
+            (mapcat #(vals (fsm/input->state fsm %)))
             (remove #(contains? state->index %))))))))
 
 (def ^:dynamic *fns*)
