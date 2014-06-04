@@ -69,7 +69,9 @@
 
 (defn- join-states
   ([^State s]
-     (State. (.generation s) (.descriptor s) (.sub-states s) nil))
+     (if (identical? reject s)
+       s
+       (State. (.generation s) (.descriptor s) (.sub-states s) nil)))
   ([s & rest]
      (State. nil nil (vec (list* s rest)) nil)))
 
@@ -343,16 +345,21 @@
 
 (defn add-action
   [fsm action]
-  (let [fsm (->dfa fsm)
-        f #(assoc-action % action)]
-    (->dfa
-      (nfa
-        (f (start fsm))
-        (map f (accept fsm))
-        (zipmap* (states fsm)
-          #(input->state fsm %))
-        (zipmap* (states fsm)
-          #(conj (or (input->actions fsm %) #{}) action))))))
+  (let [fsm (->dfa fsm)]
+    (dfa
+      (start fsm)
+      (accept fsm)
+      (zipmap* (states fsm) #(input->state fsm %))
+      (zipmap* (states fsm)
+        (fn [state]
+          (->> (input->actions fsm state)
+            (map
+              (fn [[input actions]]
+                [input
+                 (if (identical? pre input)
+                   actions
+                   (conj (or actions #{}) action))]))
+            (into {})))))))
 
 ;;;
 

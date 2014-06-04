@@ -7,7 +7,7 @@
                  [potemkin "0.3.4"]
                  [riddley "0.1.7"]
                  [proteus "0.1.4"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.5.1"]
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.6.0"]
                                   [reiddraper/simple-check "0.5.6"]
                                   [criterium "0.4.3"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}}

@@ -70,7 +70,7 @@
                               ;; entry to start state
                               (when-not (empty? pre-actions)
                                 {:fontname "monospace"
-                                 :label (apply str (interpose ", " pre-actions))})
+                                 :label (apply str "/ " (interpose ", " pre-actions))})
 
                               ;; all others
                               (->> (src+dst->inputs src dst)
@@ -98,7 +98,7 @@
 (defn view
   "Displays the states and transitions of `fsm`."
   ([fsm]
-     (view fsm {:dpi 150}))
+     (view fsm {:dpi 125}))
   ([fsm options]
      (-> fsm
        (fsm->dot options)

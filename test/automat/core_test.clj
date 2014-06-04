@@ -2,6 +2,8 @@
   (:require
     [clojure.test :refer :all]
     [automat.core :as a]
+    [automat.fsm :as fsm]
+    [automat.viz :refer :all]
     [criterium.core :as c])
   (:import
     [java.nio
@@ -68,6 +70,41 @@
      1 3 [0 1 1 0]]
 
     ))
+
+(deftest test-advance
+  (are [fsm input-seqs]
+    (let [fsm' (a/compile
+                 [(a/$ :init) fsm]
+                 {:reducers {:init (constantly []), :conj conj}})]
+      (every?
+        (fn [[expected s]]
+          (= expected (:value (reduce #(a/advance fsm' %1 %2) nil s))))
+        (partition 2 input-seqs)))
+
+    (a/interpose-$ :conj [1 2 3 4])
+    [[1] [1]
+     [1 2] [1 2]
+     [1 2 3] [1 2 3]
+     [1 2 3 4] [1 2 3 4]]
+
+    [1 (a/$ :conj) (a/$ :conj)]
+    [[1] [1]]
+
+    [(a/or
+       (a/interpose-$ :conj [1 2 3])
+       [4])
+     (a/$ :conj)
+     5]
+    [[1 2 3] [1 2 3 5]
+     [4] [4 5]]
+
+    [1 (a/$ :conj) 2 (a/$ :init) 3 (a/$ :conj) 4 (a/$ :conj)]
+    [[1] [1]
+     [] [1 2]
+     [3] [1 2 3]
+     [3 4] [1 2 3 4]]))
+
+;;;
 
 (defn cycle-array [n s]
   (let [cnt (count s)

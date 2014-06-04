@@ -44,9 +44,9 @@
   [name]
   (fsm/action-automaton name))
 
-(defn interleave-$
+(defn interpose-$
   "Applies a state tag to all states within the given automaton."
-  [fsm name]
+  [name fsm]
   (-> fsm
     parse-automata
     (fsm/add-action name)))
@@ -141,7 +141,7 @@
 
      If the returned state has `accepted?` set to true, the matching sub-sequence is from `start-index` to `stream-index`. Since
      no inputs past the match are consumed, this can be safely used with impure functions and input sources.")
-  (find-next [_ state stream reject-value]
+  (advance-stream [_ state stream reject-value]
     "Advances through the the stream, stopping if the stream is accepted or rejected.  If the input state is `accepted?`,
      proceeds anyway.  If rejected, `reject-value` is returned in lieu of the new state.
 
@@ -247,9 +247,9 @@
 
                                                     ;; update value
                                                     ~@(when-let [action-syms (->> actions
-                                                                                (map action->sym)
-                                                                                (remove nil?)
-                                                                                seq)]
+                                                                               (map action->sym)
+                                                                               (remove nil?)
+                                                                               seq)]
                                                         `((set! value##
                                                             ~(reduce
                                                                (fn [form fn] `(~fn ~form input##))
@@ -302,12 +302,14 @@
 (def ^:dynamic *fns*)
 
 (defn compile
-  "Compiles the fsm into something that can be used with `find`, `find-next`, `greedy-find`, and `advance`."
+  "Compiles the fsm into something that can be used with `find`, `advance-stream`, `greedy-find`, and `advance`.  Optionally takes an option map, which may contain:
+
+    `reducers` - a map or function of actions defined via `$` onto reducer functions which take two arguments, the current reduction value and the input.
+
+    `signal` - a function that takes an input and returns the signal that will be used to advance the automaton.  The input passed into reducer functions will not be affected by this."
   ([fsm]
      (compile fsm nil))
-  ([fsm
-    {:keys [action->fn signal]
-     :or {action->fn {}}}]
+  ([fsm {:keys [reducers signal]}]
      (if (instance? ICompiledAutomaton fsm)
        fsm
        (let [fsm (fsm/final-minimize (parse-automata fsm))
@@ -316,11 +318,13 @@
                            (->> fsm
                              fsm/states
                              (mapcat #(vals (fsm/input->actions fsm %)))
+                             (remove nil?)
+                             (apply clojure.core/concat)
                              distinct)
                             (repeatedly #(gensym "f")))
              action->fn (->> action->sym
                            keys
-                           (map #(when-let [f (action->fn %)]
+                           (map #(when-let [f (clojure.core/and reducers (reducers %))]
                                    [% f]))
                            (remove nil?)
                            (into {}))
@@ -361,7 +365,7 @@
                                       (recur ~start-index (p/dec stream-index##) (p/dec stream-index##) input##))))
                                signal
                                action->sym))))
-                      (find-next [_# state## stream## reject-value##]
+                      (advance-stream [_# state## stream## reject-value##]
                         (let [state## (if (instance? automat.core.CompiledAutomatonState state##)
                                         state##
                                         (map->CompiledAutomatonState state##))
@@ -385,7 +389,7 @@
   (let [stream (stream/to-stream stream)]
     (loop [state state]
       (if (clojure.core/or (.accepted? state) (.checkpoint state))
-        (let [state' (find-next fsm state stream ::reject)]
+        (let [state' (advance-stream fsm state stream ::reject)]
           (cond
             (identical? ::reject state')
             (if (.accepted? state)
@@ -401,3 +405,21 @@
           (if (.accepted? state')
             (recur state')
             state'))))))
+
+(defn advance
+  "Advances a single position in the automaton.  Takes a compiled `fsm`, a `state` which is either an initial reduce
+   value or a CompiledAutomatonState previously returned by `advance`, and an input.
+
+   If a `reject-value` is specified, it will be returned if an invalid input is given.  Otherwise an IllegalArgumentException is thrown."
+  ([fsm state input]
+     (let [state' (advance fsm state input ::reject)]
+       (if (identical? ::reject state')
+         (throw
+           (IllegalArgumentException.
+             (str "could not process input " (pr-str input))))
+         state')))
+  ([fsm state input reject-value]
+     (let [state (if (instance? CompiledAutomatonState state)
+                   state
+                   (start fsm state))]
+       (advance-stream fsm state [input] reject-value))))
