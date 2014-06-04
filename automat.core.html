@@ -9,7 +9,7 @@
   <body>
     <header>
       <div id="header">
-        <h1 class="project-title">Automat 0.1.0 API documentation</h1>
+        <h1 class="project-title">Automat 0.1.2-SNAPSHOT API documentation</h1>
       </div>
     </header>
     <navigation>
@@ -22,7 +22,7 @@
       <div id="vars" class="sidebar">
         <h3>Public Vars</h3>
         <ul class="ns-var-links">
-          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%24">$</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-*">*</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%2B">+</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var--%3ECompiledAutomatonState">-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-..">..</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%3F">?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-advance">advance</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-and">and</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-any">any</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-compile">compile</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-complement">complement</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-difference">difference</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-find">find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-greedy-find">greedy-find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-interleave-%24">interleave-$</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-map-%3ECompiledAutomatonState">map-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-not">not</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-or">or</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-start">start</a></li>
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%24">$</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-*">*</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%2B">+</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var--%3ECompiledAutomatonState">-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-..">..</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-%3F">?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-and">and</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-any">any</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-compile">compile</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-complement">complement</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-difference">difference</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-find">find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-find-next">find-next</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-greedy-find">greedy-find</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-interleave-%24">interleave-$</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-map-%3ECompiledAutomatonState">map-&gt;CompiledAutomatonState</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-not">not</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-or">or</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="automat.core.html#var-start">start</a></li>
         </ul>
       </div>
     </navigation>
@@ -81,18 +81,6 @@
             <div class="doc"><p>Returns an automaton that accepts zero or one of the given automaton.</p>
 </div>
           </div><div class="public">
-            <h3><a id="var-advance" class="source var-name" href="/src/automat/core.clj">advance</a></h3>
-            <h4 class="var-type fn" id="var-type">fn</h4>
-            <div class="usage">[_ state stream reject-value]</div>
-            
-            
-            <div class="doc"><p>Advances through the the stream, stopping if the stream is accepted or rejected.  If the input state is <code>accepted?</code>,
-proceeds anyway.  If rejected, <code>reject-value</code> is returned in lieu of the new state.</p>
-
-<p>If an input state is already accepted and <code>reject-value</code> is returned, this means that inputs beyond the accepted sub-sequence
-have been consumed.  As such, be careful when using impure functions and input sources.</p>
-</div>
-          </div><div class="public">
             <h3><a id="var-and" class="source var-name" href="/src/automat/core.clj">and</a></h3>
             <h4 class="var-type fn" id="var-type">fn</h4>
             <div class="usage">[&amp; args]</div>
@@ -111,10 +99,10 @@ have been consumed.  As such, be careful when using impure functions and input s
           </div><div class="public">
             <h3><a id="var-compile" class="source var-name" href="/src/automat/core.clj">compile</a></h3>
             <h4 class="var-type fn" id="var-type">fn</h4>
-            <div class="usage">[fsm]</div><div class="usage">[fsm action-&gt;fn]</div>
+            <div class="usage">[fsm]</div><div class="usage">[fsm {:keys [action-&gt;fn signal], :or {action-&gt;fn {}}}]</div>
             
             
-            <div class="doc"><p>Compiles the fsm into something that can be used with <code>find</code>, <code>advance</code>, and <code>greedy-find</code>.</p>
+            <div class="doc"><p>Compiles the fsm into something that can be used with <code>find</code>, <code>find-next</code>, <code>greedy-find</code>, and <code>advance</code>.</p>
 </div>
           </div><div class="public">
             <h3><a id="var-complement" class="source var-name" href="/src/automat/core.clj">complement</a></h3>
@@ -144,6 +132,18 @@ start state.  If the input state is <code>accepted?</code>, returns immediately.
 
 <p>If the returned state has <code>accepted?</code> set to true, the matching sub-sequence is from <code>start-index</code> to <code>stream-index</code>. Since
 no inputs past the match are consumed, this can be safely used with impure functions and input sources.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-find-next" class="source var-name" href="/src/automat/core.clj">find-next</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[_ state stream reject-value]</div>
+            
+            
+            <div class="doc"><p>Advances through the the stream, stopping if the stream is accepted or rejected.  If the input state is <code>accepted?</code>,
+proceeds anyway.  If rejected, <code>reject-value</code> is returned in lieu of the new state.</p>
+
+<p>If an input state is already accepted and <code>reject-value</code> is returned, this means that inputs beyond the accepted sub-sequence
+have been consumed.  As such, be careful when using impure functions and input sources.</p>
 </div>
           </div><div class="public">
             <h3><a id="var-greedy-find" class="source var-name" href="/src/automat/core.clj">greedy-find</a></h3>
