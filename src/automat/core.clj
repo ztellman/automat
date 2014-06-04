@@ -42,14 +42,14 @@
 (defn $
   "Defines a state tag, which can be correlated to a reducer function using `compile`."
   [name]
-  (fsm/handler-automaton name))
+  (fsm/action-automaton name))
 
 (defn interleave-$
   "Applies a state tag to all states within the given automaton."
   [fsm name]
   (-> fsm
     parse-automata
-    (fsm/add-handler name)))
+    (fsm/add-action name)))
 
 (defn ?
   "Returns an automaton that accepts zero or one of the given automaton."
@@ -141,7 +141,7 @@
 
      If the returned state has `accepted?` set to true, the matching sub-sequence is from `start-index` to `stream-index`. Since
      no inputs past the match are consumed, this can be safely used with impure functions and input sources.")
-  (advance [_ state stream reject-value]
+  (find-next [_ state stream reject-value]
     "Advances through the the stream, stopping if the stream is accepted or rejected.  If the input state is `accepted?`,
      proceeds anyway.  If rejected, `reject-value` is returned in lieu of the new state.
 
@@ -174,7 +174,7 @@
            ranges))))
 
 (defn- consume-form
-  [compiled-state input-stream fsm state->index reject-clause handler->sym]
+  [compiled-state input-stream fsm state->index reject-clause signal action->sym]
   (let [alphabet (disj (fsm/alphabet fsm) fsm/default)
         numeric? (clojure.core/and
                    (clojure.core/not (empty? alphabet))
@@ -203,7 +203,8 @@
                start-index##
                stream-index##
                value##))
-           (let [stream-index## (p/inc stream-index##)]
+           (let [signal## ~(if signal `(~signal input##) `input##)
+                 stream-index## (p/inc stream-index##)]
              (case state-index##
                ~@(->> state->index
                    (sort-by val)
@@ -211,43 +212,49 @@
                      (fn [[state index]]
                        `(~index
                           ~(let [input->state (fsm/input->state fsm state)
-                                 state->inputs (->> input->state
-                                                 keys
-                                                 (group-by input->state))]
-                             (if (empty? state->inputs)
+                                 input->actions (fsm/input->actions fsm state)
+
+                                 state+actions->inputs
+                                 (->> input->state
+                                   keys
+                                   (group-by
+                                     (juxt
+                                       (clojure.core/or input->state {})
+                                       (clojure.core/or input->actions {}))))]
+
+                             (if (empty? state+actions->inputs)
                                (reject-clause next-input)
                                `(do
-                                  ~@(when (= index start-index)
-                                      (when-let [handler-syms (->> state
-                                                                fsm/handlers
-                                                                (map handler->sym)
-                                                                (remove nil?)
-                                                                seq)]
-                                        `((set! value##
-                                            ~(reduce
-                                               (fn [form fn] `(~fn ~form input##))
-                                               `value##
-                                               handler-syms)))))
+                                  ~@(when-let [action-syms (->> state
+                                                             (fsm/input->actions fsm)
+                                                             (#(get % fsm/pre))
+                                                             (map action->sym)
+                                                             (remove nil?)
+                                                             seq)]
+                                      `((set! value##
+                                          ~(reduce
+                                             (fn [form fn] `(~fn ~form input##))
+                                             `value##
+                                             action-syms))))
                                   (cond
-                                    ~@(->> state->inputs
+                                    ~@(->> state+actions->inputs
                                         (mapcat
-                                          (fn [[state inputs]]
+                                          (fn [[[state actions] inputs]]
                                             (let [inputs (remove #{fsm/default} inputs)]
                                               (when (clojure.core/not (empty? inputs))
-                                                `(~(inputs-predicate `input## inputs)
+                                                `(~(inputs-predicate `signal## inputs)
                                                   (do
 
                                                     ;; update value
-                                                    ~@(when-let [handler-syms (->> state
-                                                                                fsm/handlers
-                                                                                (map handler->sym)
+                                                    ~@(when-let [action-syms (->> actions
+                                                                                (map action->sym)
                                                                                 (remove nil?)
                                                                                 seq)]
                                                         `((set! value##
                                                             ~(reduce
                                                                (fn [form fn] `(~fn ~form input##))
                                                                `value##
-                                                               handler-syms))))
+                                                               action-syms))))
 
                                                     ;; recur to next state, or return accepted state
                                                     ~(if (= fsm/reject state)
@@ -295,32 +302,37 @@
 (def ^:dynamic *fns*)
 
 (defn compile
-  "Compiles the fsm into something that can be used with `find`, `advance`, and `greedy-find`."
+  "Compiles the fsm into something that can be used with `find`, `find-next`, `greedy-find`, and `advance`."
   ([fsm]
-     (compile fsm {}))
-  ([fsm action->fn]
+     (compile fsm nil))
+  ([fsm
+    {:keys [action->fn signal]
+     :or {action->fn {}}}]
      (if (instance? ICompiledAutomaton fsm)
        fsm
        (let [fsm (fsm/final-minimize (parse-automata fsm))
              state->index (canonicalize-states fsm)
-             handler->sym (zipmap
-                            (->> fsm fsm/states (mapcat fsm/handlers) distinct)
+             action->sym (zipmap
+                           (->> fsm
+                             fsm/states
+                             (mapcat #(vals (fsm/input->actions fsm %)))
+                             distinct)
                             (repeatedly #(gensym "f")))
-             handler->fn (->> handler->sym
+             action->fn (->> action->sym
                            keys
                            (map #(when-let [f (action->fn %)]
                                    [% f]))
                            (remove nil?)
                            (into {}))
-             handler->sym (select-keys handler->sym (keys handler->fn))]
+             action->sym (select-keys action->sym (keys action->fn))]
          (with-meta
-           (binding [*fns* handler->fn]
+           (binding [*fns* action->fn]
              (eval
                (unify-gensyms
                  `(let [~@(mapcat
-                            (fn [[handler sym]]
-                              [sym `(*fns* ~handler)])
-                            handler->sym)]
+                            (fn [[action sym]]
+                              [sym `(*fns* ~action)])
+                            action->sym)]
                     (reify automat.core.ICompiledAutomaton
                       (start [_# initial-value#]
                         (automat.core.CompiledAutomatonState.
@@ -347,8 +359,9 @@
                                    `(if (p/== ~start-index state-index##)
                                       (recur ~start-index stream-index## stream-index## ~next-input)
                                       (recur ~start-index (p/dec stream-index##) (p/dec stream-index##) input##))))
-                               handler->sym))))
-                      (advance [_# state## stream## reject-value##]
+                               signal
+                               action->sym))))
+                      (find-next [_# state## stream## reject-value##]
                         (let [state## (if (instance? automat.core.CompiledAutomatonState state##)
                                         state##
                                         (map->CompiledAutomatonState state##))
@@ -359,7 +372,8 @@
                              fsm
                              state->index
                              (fn [_] `reject-value##)
-                             handler->sym))))))))
+                             signal
+                             action->sym))))))))
            {:fsm fsm
             :state->index state->index})))))
 
@@ -371,7 +385,7 @@
   (let [stream (stream/to-stream stream)]
     (loop [state state]
       (if (clojure.core/or (.accepted? state) (.checkpoint state))
-        (let [state' (advance fsm state stream ::reject)]
+        (let [state' (find-next fsm state stream ::reject)]
           (cond
             (identical? ::reject state')
             (if (.accepted? state)

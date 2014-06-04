@@ -1,5 +1,6 @@
 (ns automat.viz
   (:require
+    [clojure.set :as set]
     [automat.core :as c]
     [automat.fsm :as a]
     [rhizome.dot :as r]
@@ -41,7 +42,7 @@
                       distinct
                       #(distinct (apply concat %)))
         src+dst->inputs (fn [src dst]
-                          (->> (a/transitions fsm src)
+                          (->> (a/input->state fsm src)
                             (filter (if (a/deterministic? fsm)
                                       #(= dst (val %))
                                       #(contains? (val %) dst)))
@@ -50,7 +51,7 @@
       (conj (a/states fsm) nil)
       #(if-not %
          [(a/start fsm)]
-         (->> % (a/transitions fsm) vals adjacent-fn))
+         (->> % (a/input->state fsm) vals adjacent-fn))
       :options options
       :vertical? false
       :node->descriptor (fn [n]
@@ -62,14 +63,37 @@
                                       (= a/reject n) "REJ"
                                       (number? (state->index n)) (str (state->index n)))}))
       :edge->descriptor (fn [src dst]
-                          {:fontname "monospace"
-                           :label (->> (src+dst->inputs src dst)
-                                    (map #(cond
-                                            (= a/epsilon %) "\u03B5"
-                                            (= a/default %) "DEF"
-                                            (string? %) (str \" % \")
-                                            :else %))
-                                    pprint-inputs)}))))
+                          (let [input->actions (a/input->actions fsm src)
+                                pre-actions (get (a/input->actions fsm dst) a/pre)]
+                            (if (nil? src)
+
+                              ;; entry to start state
+                              (when-not (empty? pre-actions)
+                                {:fontname "monospace"
+                                 :label (apply str (interpose ", " pre-actions))})
+
+                              ;; all others
+                              (->> (src+dst->inputs src dst)
+                                (group-by
+                                  #(set/union
+                                     (get input->actions %)
+                                     pre-actions))
+                                (map
+                                  (fn [[actions inputs]]
+                                    (let [inputs' (map
+                                                    #(cond
+                                                       (= a/epsilon %) "\u03B5"
+                                                       (= a/default %) "DEF"
+                                                       (string? %) (str \" % \")
+                                                       :else %)
+                                                    inputs)]
+                                      (apply str
+                                        (pprint-inputs inputs)
+                                        (when-not (empty? actions)
+                                          (list* " / "
+                                            (interpose ", " actions)))))))
+                                (map #(hash-map :fontname "monospace" :label %))
+                                vec)))))))
 
 (defn view
   "Displays the states and transitions of `fsm`."
