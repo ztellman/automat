@@ -482,34 +482,53 @@
   [fsm]
   (let [fsm (prune (->dfa fsm))
         state->new-state (reduce-states fsm)
-        new-state->states (group-by state->new-state (keys state->new-state))]
+        new-state->states (group-by state->new-state (keys state->new-state))
+
+        state->input->state
+        (zipmap*
+          (keys new-state->states)
+          (fn [new-state]
+            (let [state (-> new-state new-state->states first)]
+              (->> new-state
+                new-state->states
+                (map
+                  (fn [state]
+                    (let [input->state (input->state fsm state)]
+                      (zipmap
+                        (keys input->state)
+                        (map state->new-state (vals input->state))))))
+                (apply merge)))))
+
+        state->input->actions
+        (zipmap*
+          (keys new-state->states)
+          (fn [new-state]
+            (let [state (-> new-state new-state->states first)]
+              (->> new-state
+                new-state->states
+                (map #(input->actions fsm %))
+                (apply merge-with set/union)))))]
     (dfa
       (state->new-state
         (start fsm))
       (->> (accept fsm)
         (map state->new-state)
         set)
+      state->input->state
+
+      ;; remove duplicate transition-based actions if the destination
+      ;; state has the same 'pre' action
       (zipmap*
-        (keys new-state->states)
-        (fn [new-state]
-          (let [state (-> new-state new-state->states first)]
-            (->> new-state
-              new-state->states
-              (map
-                (fn [state]
-                  (let [input->state (input->state fsm state)]
-                    (zipmap
-                      (keys input->state)
-                      (map state->new-state (vals input->state))))))
-              (apply merge)))))
-      (zipmap*
-        (keys new-state->states)
-        (fn [new-state]
-          (let [state (-> new-state new-state->states first)]
-            (->> new-state
-              new-state->states
-              (map #(input->actions fsm %))
-              (apply merge-with set/union))))))))
+        (keys state->input->actions)
+        (fn [state]
+          (let [input->actions (get state->input->actions state)]
+            (zipmap* (keys input->actions)
+              (fn [input]
+                (set/difference
+                  (get input->actions input)
+                  (get-in state->input->actions
+                    [(get-in state->input->state [state input])
+                     pre]))))))))))
 
 (defn final-minimize
   "Marks dead states as `reject`, or removes them altogether if there's no default input.

@@ -88,7 +88,7 @@
                                                        :else %)
                                                     inputs)]
                                       (apply str
-                                        (pprint-inputs inputs)
+                                        (pprint-inputs inputs')
                                         (when-not (empty? actions)
                                           (list* " / "
                                             (interpose ", " actions)))))))
