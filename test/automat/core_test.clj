@@ -10,7 +10,7 @@
      ByteBuffer]))
 
 (defn accepts? [f fsm start-index stream-index s]
-  (let [state (f fsm (a/start fsm nil) s)]
+  (let [state (f fsm nil s)]
     (and
       (:accepted? state)
       (= start-index (:start-index state))
@@ -102,7 +102,20 @@
     [[1] [1]
      [] [1 2]
      [3] [1 2 3]
-     [3 4] [1 2 3 4]]))
+     [3 4] [1 2 3 4]])
+
+  (are [fsm input-seqs]
+    (let [fsm' (a/compile
+                 [(a/$ :init) fsm]
+                 {:reducers {:init (constantly []), :conj conj}
+                  :signal inc})]
+      (every?
+        (fn [[expected s]]
+          (= expected (:value (reduce #(a/advance fsm' %1 %2) nil s))))
+        (partition 2 input-seqs)))
+
+    (a/interpose-$ :conj [1 2 3 4])
+    [[0] [0]]))
 
 ;;;
 
@@ -118,4 +131,4 @@
         fsm (a/compile [1 2 3 4])]
     (println "find within a 100mb buffer")
     (c/quick-bench
-      (a/find fsm (a/start fsm nil) ary))))
+      (a/find fsm nil ary))))

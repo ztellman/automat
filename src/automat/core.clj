@@ -71,48 +71,6 @@
     parse-automata
     fsm/kleene))
 
-(defn or
-  "Returns an automaton that accepts the union of the given automata."
-  [& args]
-  (->> args
-    (map parse-automata)
-    (apply fsm/union)))
-
-(defn and
-  "Returns an automaton that accepts the intersection the given automata."
-  [& args]
-  (->> args
-    (map parse-automata)
-    (apply fsm/intersection)))
-
-(defn difference
-  "Returns an automaton that accepts the disjoint of the first automaton and the subsequent
-   automata."
-  [& args]
-  (->> args
-    (map parse-automata)
-    (apply fsm/difference)))
-
-(defn complement
-  "Returns the complement of the given automaton."
-  [& args]
-  (->> args
-    parse-automata
-    fsm/complement))
-
-(defn not
-  "Returns the complement of any zero or one-transition automata.  Equivalent to the character
-   negation `^` operator in regular expressions."
-  [& args]
-  (let [fsm (parse-automata args)]
-    (assert (> 3 (count (fsm/states fsm)))
-      "'not' can only be used on one or zero-transition automata.")
-    (fsm/difference
-      (fsm/all-automaton)
-      fsm)))
-
-(def ^{:doc "Returns an automaton that accepts any single input value."}
-  any (fsm/all-automaton))
 
 (defn- input-range [lower upper]
   (let [lower (parse-input lower)
@@ -133,7 +91,7 @@
 ;;;
 
 (definterface+ ICompiledAutomaton
-  (start [_ initial-value]
+  (^:private start [_ initial-value]
     "Returns a start state for the automaton, with the reduction value set to `initial-value`.")
   (find [_ state stream]
     "Searches for a accepted sub-sequence within the stream.  If an input sequence is rejected, begins again at the automaton's
@@ -300,6 +258,26 @@
             (remove #(contains? state->index %))))))))
 
 (def ^:dynamic *fns*)
+(def ^:dynamic *signal*)
+
+(defn ->automaton-state [fsm x]
+  (cond
+
+    (instance? CompiledAutomatonState x)
+    x
+
+    (clojure.core/and
+      (map? x)
+      (contains? x :start-index)
+      (contains? x :state-index)
+      (contains? x :start-index)
+      (contains? x :stream-index)
+      (contains? x :checkpoint)
+      (contains? x :value))
+    (map->CompiledAutomatonState x)
+
+    :else
+    (start fsm x)))
 
 (defn compile
   "Compiles the fsm into something that can be used with `find`, `advance-stream`, `greedy-find`, and `advance`.  Optionally takes an option map, which may contain:
@@ -330,13 +308,15 @@
                            (into {}))
              action->sym (select-keys action->sym (keys action->fn))]
          (with-meta
-           (binding [*fns* action->fn]
+           (binding [*fns* action->fn
+                     *signal* signal]
              (eval
                (unify-gensyms
                  `(let [~@(mapcat
                             (fn [[action sym]]
                               [sym `(*fns* ~action)])
-                            action->sym)]
+                            action->sym)
+                        signal## @#'*signal*]
                     (reify automat.core.ICompiledAutomaton
                       (start [_# initial-value#]
                         (automat.core.CompiledAutomatonState.
@@ -346,10 +326,8 @@
                           0
                           0
                           initial-value#))
-                      (find [_# state## stream##]
-                        (let [state## (if (instance? automat.core.CompiledAutomatonState state##)
-                                        state##
-                                        (map->CompiledAutomatonState state##))
+                      (find [this# state## stream##]
+                        (let [state## (->automaton-state this# state##)
                               stream## (stream/to-stream stream##)]
                           (if (.accepted? ^automat.core.CompiledAutomatonState state##)
                             state##
@@ -363,12 +341,10 @@
                                    `(if (p/== ~start-index state-index##)
                                       (recur ~start-index stream-index## stream-index## ~next-input)
                                       (recur ~start-index (p/dec stream-index##) (p/dec stream-index##) input##))))
-                               signal
+                               (when signal `signal##)
                                action->sym))))
-                      (advance-stream [_# state## stream## reject-value##]
-                        (let [state## (if (instance? automat.core.CompiledAutomatonState state##)
-                                        state##
-                                        (map->CompiledAutomatonState state##))
+                      (advance-stream [this# state## stream## reject-value##]
+                        (let [state## (->automaton-state this# state##)
                               stream## (stream/to-stream stream##)]
                           ~(consume-form
                              (with-meta `state## {:tag "automat.core.CompiledAutomatonState"})
@@ -376,7 +352,7 @@
                              fsm
                              state->index
                              (fn [_] `reject-value##)
-                             signal
+                             (when signal `signal##)
                              action->sym))))))))
            {:fsm fsm
             :state->index state->index})))))
@@ -385,8 +361,9 @@
   "Greedily find the largest possible accepted sub-sequence.  Will only return an `accepted?` state once subsequent
    inputs have been rejected.  Since this always consumes more inputs than the accepted sub-sequence, be careful when
    using impure functions or input sources."
-  [fsm ^CompiledAutomatonState state stream]
-  (let [stream (stream/to-stream stream)]
+  [fsm state stream]
+  (let [^CompiledAutomatonState state (->automaton-state fsm state)
+        stream (stream/to-stream stream)]
     (loop [state state]
       (if (clojure.core/or (.accepted? state) (.checkpoint state))
         (let [state' (advance-stream fsm state stream ::reject)]
@@ -419,7 +396,50 @@
              (str "could not process input " (pr-str input))))
          state')))
   ([fsm state input reject-value]
-     (let [state (if (instance? CompiledAutomatonState state)
-                   state
-                   (start fsm state))]
+     (let [state (->automaton-state fsm state)]
        (advance-stream fsm state [input] reject-value))))
+
+;;; define these last, so we don't use them mistakenly above
+
+(defn or
+  "Returns an automaton that accepts the union of the given automata."
+  [& args]
+  (->> args
+    (map parse-automata)
+    (apply fsm/union)))
+
+(defn and
+  "Returns an automaton that accepts the intersection the given automata."
+  [& args]
+  (->> args
+    (map parse-automata)
+    (apply fsm/intersection)))
+
+(defn difference
+  "Returns an automaton that accepts the disjoint of the first automaton and the subsequent
+   automata."
+  [& args]
+  (->> args
+    (map parse-automata)
+    (apply fsm/difference)))
+
+(defn complement
+  "Returns the complement of the given automaton."
+  [& args]
+  (->> args
+    parse-automata
+    fsm/complement))
+
+(defn not
+  "Returns the complement of any zero or one-transition automata.  Equivalent to the character
+   negation `^` operator in regular expressions."
+  [& args]
+  (let [fsm (parse-automata args)]
+    (assert (> 3 (count (fsm/states fsm)))
+      "'not' can only be used on one or zero-transition automata.")
+    (fsm/difference
+      (fsm/all-automaton)
+      fsm)))
+
+(def ^{:doc "Returns an automaton that accepts any single input value."}
+  any (fsm/all-automaton))

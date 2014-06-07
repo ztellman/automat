@@ -38,7 +38,7 @@
   (let [fsm (a/compile fsm)
         state (a/greedy-find
                 fsm
-                (a/start fsm nil)
+                nil
                 inputs)]
     (and (:accepted? state)
       (= 0 (:start-index state))
