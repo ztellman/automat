@@ -121,7 +121,7 @@ This will optimize the FSM, emit code that processes it, and call `eval` on it. 
 
 Notice that when we visualize a compiled FSM, the states themselves are now labeled:
 
-```
+```clj
 > (view (a/compile [4 5 6]))
 ```
 
@@ -133,7 +133,12 @@ The simplest way to interact with a compiled FSM is `(advance fsm state input)`.
 > (def f (a/compile [1 2 3]))
 #'f
 > (a/advance f nil 1)
-{:accepted? false, :checkpoint nil, :state-index 1, :start-index 0, :stream-index 1, :value nil}
+{:accepted? false
+ :checkpoint nil
+ :state-index 1
+ :start-index 0
+ :stream-index 1
+ :value nil}
 ```
 
 This returns a map returning the FSM state produced by the input.
@@ -153,7 +158,12 @@ This map can be passed back into `advance` as the `state` parameter:
 > (def adv (partial a/advance f))
 #'adv
 > (-> nil (adv 1) (adv 2) (adv 3))
-{:accepted? true, :checkpoint nil, :state-index 3, :start-index 0, :stream-index 3, :value nil}
+{:accepted? true
+ :checkpoint nil
+ :state-index 3
+ :start-index 0
+ :stream-index 3
+ :value nil}
 ```
 
 Notice that `advance` either accepts the map descriptor returned by a previous call to `advance`, or an arbitrary value, representing an initial value at the beginning of the FSM.  The reasons for this are shown below.
@@ -179,7 +189,7 @@ We can define reduction operations within our FSM using the `$` function:
 > (view f)
 ```
 
-![](docs/readme-10.png)
+![](docs/readme-9.png)
 
 As shown here, the `:complete` action is something that's associated with the previous input, in this case `3`.  Then, when calling `compile`, we associate a reduce function with that action, which takes the current reduce `:value` and the latest input.  In this case, it simply returns :complete when it gets the sequence `[1 2 3]`.
 
@@ -218,7 +228,7 @@ However, the user may wander around a bit, so we want to allow for arbitrary pag
 
 ![](/docs/readme-10.png)
 
-Here we've interposed `(a/* a/any)` between each transition, which will happily accept 0 or more pages that don't match the expected pattern.  However, the data that represents our pages is likely more complicated than just a keyword.  Likely it will be a map describing the URL, the page contents, and so on.
+Here we've interposed `(a/* a/any)` between each transition, which will happily accept zero or more pages that don't match the expected pattern.  However, the data that represents our pages is likely more complicated than just a keyword.  Likely it will be a map describing the URL, the page contents, and so on.
 
 In this case, we want to define the `:signal` when compiling the FSM, which is a function that takes the raw input, and returns the signal that will actually be matched on.  In this case, let's assume that each pageview is represented by a map with a `:page-type` field that will contain `:cart`, `:checkout`, and others.  Let's also assume that we want to keep track of the full data for the cart and checkout pages.
 
