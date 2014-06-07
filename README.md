@@ -141,7 +141,7 @@ The simplest way to interact with a compiled FSM is `(advance fsm state input)`.
  :value nil}
 ```
 
-This returns a map returning the FSM state produced by the input.
+This returns a map representing the FSM state produced by the input.
 
 | field | description |
 |-------|-------------|
