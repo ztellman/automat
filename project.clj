@@ -1,8 +1,8 @@
-(defproject automat "0.1.2-SNAPSHOT"
+(defproject automat "0.1.2"
   :description ""
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
-  :dependencies [[rhizome "0.2.1-SNAPSHOT"]
+  :dependencies [[rhizome "0.2.1"]
                  [primitive-math "0.1.3"]
                  [potemkin "0.3.4"]
                  [riddley "0.1.7"]
