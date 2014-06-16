@@ -641,7 +641,8 @@
   ((if (deterministic? fsm) dfa nfa)
    (start fsm)
    (conj (accept fsm) (start fsm))
-   (zipmap* (states fsm) #(input->state fsm %))))
+   (zipmap* (states fsm) #(input->state fsm %))
+   (zipmap* (states fsm) #(input->actions fsm %))))
 
 (defn- merge-fsms [a b accept-states]
   (let [a (gensym-states (->dfa a))
