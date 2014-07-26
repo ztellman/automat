@@ -5,7 +5,7 @@ Automat is a library for defining and using finite-state automata, inspired by [
 These automata, once compiled, are quite fast.  An array with 100 million elements can be processed in 500ms, giving a mean transition time of 5ns.  However, Automat isn't just for high throughput use cases; it's meant to be useful wherever an FSM is necessary.
 
 ```clj
-[automat "0.1.2"]
+[automat "0.1.3"]
 ```
 
 Full documentation can be found [here](http://ideolalia.com/automat).
