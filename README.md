@@ -263,7 +263,7 @@ First, we take each of the notable pages and add a `:save` action to them.  Then
 
 Notice that the first action doesn't have an associated input, it simply happens upon entering the FSM.  Notice too that the final input has two associated actions.  This is perfectly safe, but the order in which the actions occur is not well-defined, so they should always be indepenent of each other.  If the same action is defined twice on a given transition, it will only be performed once.
 
-This is a fairly verbose way to define simple behavior, but it's worth noting that almost everything exception for the `[:cart :checkout :cart]` sequence can be abstracted away.  With the proper domain-specific scaffolding, this can be a powerful declarative mechanism.
+This is a fairly verbose way to define simple behavior, but it's worth noting that almost everything except for the `[:cart :checkout :cart]` sequence can be abstracted away.  With the proper domain-specific scaffolding, this can be a powerful declarative mechanism.
 
 It's also easy to extend.  Let's say that we want to save any `:product` pages the user visits, to better inform our offer.  This is a fairly small modification:
 
