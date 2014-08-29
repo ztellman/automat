@@ -19,7 +19,7 @@
 (defn- parse-input [x]
   (cond
     (clojure.core/or (keyword? x) (number? x)) x
-    (char? x) (int x)
+    (char? x) x
     (clojure.core/and (string? x) (= 1 (count x))) (int (first x))
     :else x))
 
@@ -114,8 +114,17 @@
    ^long stream-index
    value])
 
+(defn- normalize-input [x]
+  (cond
+    (char? x)
+    (int x)
+
+    :else
+    x))
+
 (defn- inputs-predicate [input to-match]
-  (let [non-numbers (remove number? to-match)
+  (let [to-match (map normalize-input to-match)
+        non-numbers (remove number? to-match)
         ranges (fsm/input-ranges (filter number? to-match))]
     `(clojure.core/or
        ~@(map
@@ -397,7 +406,7 @@
          state')))
   ([fsm state input reject-value]
      (let [state (->automaton-state fsm state)]
-       (advance-stream fsm state [input] reject-value))))
+       (advance-stream fsm state [(normalize-input input)] reject-value))))
 
 ;;; define these last, so we don't use them mistakenly above
 
@@ -443,3 +452,6 @@
 
 (def ^{:doc "Returns an automaton that accepts any single input value."}
   any (fsm/all-automaton))
+
+(def ^{:doc "Returns an automaton that immediately accepts."}
+  none (fsm/empty-automaton))

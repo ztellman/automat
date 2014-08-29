@@ -687,7 +687,7 @@
             (fn [^State state]
               (let [sub-states (.sub-states state)
                     [s-a s-b] sub-states]
-                (merge
+                (merge-with set/union
                   (input->actions a s-a)
                   (input->actions b s-b))))))]
 
