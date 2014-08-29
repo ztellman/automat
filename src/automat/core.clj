@@ -122,7 +122,7 @@
     :else
     x))
 
-(defn- inputs-predicate [input to-match]
+(defn- inputs-predicate [numeric? input to-match]
   (let [to-match (map normalize-input to-match)
         non-numbers (remove number? to-match)
         ranges (fsm/input-ranges (filter number? to-match))]
@@ -135,9 +135,12 @@
            non-numbers)
        ~@(map
            (fn [[l u]]
-             (if (== l u)
-               `(== ~input ~l)
-               `(clojure.core/and (<= ~l ~input) (<= ~input ~u))))
+             (let [x (if (== l u)
+                       `(== ~input ~l)
+                       `(clojure.core/and (<= ~l ~input) (<= ~input ~u)))]
+               (if numeric?
+                 ~x
+                 `(clojure.core/and (number? ~input) ~x))))
            ranges))))
 
 (defn- consume-form
@@ -209,7 +212,7 @@
                                           (fn [[[state actions] inputs]]
                                             (let [inputs (remove #{fsm/default} inputs)]
                                               (when (clojure.core/not (empty? inputs))
-                                                `(~(inputs-predicate `signal## inputs)
+                                                `(~(inputs-predicate numeric? `signal## inputs)
                                                   (do
 
                                                     ;; update value
