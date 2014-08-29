@@ -139,7 +139,7 @@
                        `(== ~input ~l)
                        `(clojure.core/and (<= ~l ~input) (<= ~input ~u)))]
                (if numeric?
-                 ~x
+                 x
                  `(clojure.core/and (number? ~input) ~x))))
            ranges))))
 
