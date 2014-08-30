@@ -61,11 +61,15 @@
                 eof
                 (let [x (first s')]
                   (swap! s rest)
-                  x))))
+                  (if (char? x)
+                    (int x)
+                    x)))))
           (nextNumericInput [_ eof]
             (let [s' @s]
               (if (empty? s')
                 eof
                 (let [x (first s')]
                   (swap! s rest)
-                  x)))))))))
+                  (if (char? x)
+                    (int x)
+                    x))))))))))

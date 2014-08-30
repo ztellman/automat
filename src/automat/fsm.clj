@@ -557,21 +557,33 @@
           #(input->actions fsm %))))))
 
 (defn input-ranges [s]
-  (loop [accumulator [], start nil, end nil, s (sort s)]
-    (if (empty? s)
-      (if end
-        (conj accumulator [start end])
-        accumulator)
-      (let [x (first s)]
-        (cond
-          (and end (= (inc end) x))
-          (recur accumulator start x (rest s))
+  (let [f (fn [a b]
+            (cond
 
-          end
-          (recur (conj accumulator [start end]) x x (rest s))
+              (and (number? a) (number? b))
+              (compare a b)
 
-          :else
-          (recur accumulator x x (rest s)))))))
+              (and (char? a) (char? b))
+              (compare a b)
+
+              :else
+              (compare (str (class a)) (str (class b)))))]
+    (loop [accumulator [], start nil, end nil, s (sort-by identity f s)]
+      (if (empty? s)
+        (if end
+          (conj accumulator [start end])
+          accumulator)
+        (let [x (first s)]
+          (cond
+
+            (and end (== (inc (int end)) (int x)))
+            (recur accumulator start x (rest s))
+
+            end
+            (recur (conj accumulator [start end]) x x (rest s))
+
+            :else
+            (recur accumulator x x (rest s))))))))
 
 ;;;
 
@@ -712,10 +724,11 @@
   ([a]
      a)
   ([a b]
-     (merge-fsms a b
-       (fn [a b]
-         (for [s-a (accept a), s-b (accept b)]
-           (join-states s-a s-b)))))
+     (minimize
+       (merge-fsms a b
+         (fn [a b]
+           (for [s-a (accept a), s-b (accept b)]
+             (join-states s-a s-b))))))
   ([a b & rest]
      (apply intersection (intersection a b) rest)))
 
@@ -724,17 +737,18 @@
   ([a]
      a)
   ([a b]
-     (merge-fsms a b
-       (fn [a b]
-         (set/union
-           (accept a)
-           (accept b)
-           (set
-             (for [s-a (accept a), s-b (states b)]
-               (join-states s-a s-b)))
-           (set
-             (for [s-a (states a), s-b (accept b)]
-               (join-states s-a s-b)))))))
+     (minimize
+       (merge-fsms a b
+         (fn [a b]
+           (set/union
+             (accept a)
+             (accept b)
+             (set
+               (for [s-a (accept a), s-b (states b)]
+                 (join-states s-a s-b)))
+             (set
+               (for [s-a (states a), s-b (accept b)]
+                 (join-states s-a s-b))))))))
   ([a b & rest]
      (apply union (union a b) rest)))
 
@@ -743,12 +757,13 @@
   ([a]
      a)
   ([a b]
-     (merge-fsms a b
-       (fn [a b]
-         (set/union
-           (accept a)
-           (set
-             (for [s-a (accept a), s-b (set/difference (states b) (accept b))]
-               (join-states s-a s-b)))))))
+     (minimize
+       (merge-fsms a b
+         (fn [a b]
+           (set/union
+             (accept a)
+             (set
+               (for [s-a (accept a), s-b (set/difference (states b) (accept b))]
+                 (join-states s-a s-b))))))))
   ([a b & rest]
      (apply difference (difference a b) rest)))

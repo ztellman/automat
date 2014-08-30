@@ -12,7 +12,8 @@
 (defn- pprint-inputs
   "Turns contiguous ranges from a to b into 'a..b'"
   [s]
-  (let [non-numbers (remove number? s)
+  (let [number? #(or (number? %) (char? %))
+        non-numbers (remove number? s)
         s (a/input-ranges (filter number? s))]
     (->> s
       (map
@@ -98,7 +99,7 @@
 (defn view
   "Displays the states and transitions of `fsm`."
   ([fsm]
-     (view fsm {:dpi 125}))
+     (view fsm {:dpi 100}))
   ([fsm options]
      (-> fsm
        (fsm->dot options)
