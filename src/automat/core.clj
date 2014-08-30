@@ -266,7 +266,7 @@
         (recur
           state->index
           (->> to-search
-            (mapcat #(vals (fsm/input->state fsm %)))
+            (mapcat #(distinct (vals (fsm/input->state fsm %))))
             (remove #(contains? state->index %))))))))
 
 (def ^:dynamic *fns*)
@@ -418,14 +418,16 @@
   [& args]
   (->> args
     (map parse-automata)
-    (apply fsm/union)))
+    (apply fsm/union)
+    fsm/minimize))
 
 (defn and
   "Returns an automaton that accepts the intersection the given automata."
   [& args]
   (->> args
     (map parse-automata)
-    (apply fsm/intersection)))
+    (apply fsm/intersection)
+    fsm/minimize))
 
 (defn difference
   "Returns an automaton that accepts the disjoint of the first automaton and the subsequent
@@ -433,7 +435,8 @@
   [& args]
   (->> args
     (map parse-automata)
-    (apply fsm/difference)))
+    (apply fsm/difference)
+    fsm/minimize))
 
 (defn complement
   "Returns the complement of the given automaton."
