@@ -90,6 +90,9 @@
     [1 (a/$ :conj) (a/$ :conj)]
     [[1] [1]]
 
+    [1 a/any (a/$ :conj) 3 4 (a/$ :conj)]
+    [[2 4] [1 2 3 4]]
+
     [(a/or
        (a/interpose-$ :conj [1 2 3])
        [4])
