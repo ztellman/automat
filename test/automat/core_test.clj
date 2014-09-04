@@ -75,7 +75,7 @@
   (are [fsm input-seqs]
     (let [fsm' (a/compile
                  [(a/$ :init) fsm]
-                 {:reducers {:init (constantly []), :conj conj}})]
+                 {:reducers {:init (constantly []), :conj conj, :conj_ conj}})]
       (every?
         (fn [[expected s]]
           (= expected (:value (reduce #(a/advance fsm' %1 %2) nil s))))
@@ -84,9 +84,16 @@
     (a/or
       (a/interpose-$ :conj [1 a/any 3])
       [1 2 3])
-
     [[1 2 3] [1 2 3]
      [1 9 3] [1 9 3]]
+
+    [(a/interpose-$ :conj (a/* a/any))
+     (a/interpose-$ :conj [1 2])]
+    [[0 1 2] [0 1 2]]
+
+    [(a/interpose-$ :conj (a/* a/any))
+     (a/interpose-$ :conj_ [1 2])]
+    [[0 1 2] [0 1 2]]
 
     (a/interpose-$ :conj [1 2 3 4])
     [[1] [1]
