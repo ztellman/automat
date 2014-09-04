@@ -65,6 +65,11 @@
                                       (number? (state->index n)) (str (state->index n)))}))
       :edge->descriptor (fn [src dst]
                           (let [input->actions (a/input->actions fsm src)
+                                input->actions (fn [input]
+                                                 (set/union
+                                                   (get input->actions input)
+                                                   (get input->actions a/default)))
+
                                 pre-actions (get (a/input->actions fsm dst) a/pre)]
                             (if (nil? src)
 
@@ -77,7 +82,7 @@
                               (->> (src+dst->inputs src dst)
                                 (group-by
                                   #(set/union
-                                     (get input->actions %)
+                                     (input->actions %)
                                      pre-actions))
                                 (map
                                   (fn [[actions inputs]]

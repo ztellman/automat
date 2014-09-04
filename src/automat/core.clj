@@ -4,6 +4,7 @@
   (:use
     [potemkin])
   (:require
+    [clojure.set :as set]
     [proteus :refer (let-mutable)]
     [automat.fsm :as fsm]
     [automat.stream :as stream]
@@ -181,20 +182,24 @@
                    (mapcat
                      (fn [[state index]]
                        `(~index
-                          ~(let [input->state (fsm/input->state fsm state)
+                          ~(let [input->state (clojure.core/or (fsm/input->state fsm state) {})
+
                                  input->actions (fsm/input->actions fsm state)
+                                 input->actions (fn [input]
+                                                  (set/union
+                                                    (get input->actions input)
+                                                    (get input->actions fsm/default)))
 
                                  state+actions->inputs
                                  (->> input->state
                                    keys
-                                   (group-by
-                                     (juxt
-                                       (clojure.core/or input->state {})
-                                       (clojure.core/or input->actions {}))))]
+                                   (group-by (juxt input->state input->actions)))]
 
                              (if (empty? state+actions->inputs)
                                (reject-clause next-input)
                                `(do
+
+                                  ;; do any pre-actions first
                                   ~@(when-let [action-syms (->> state
                                                              (fsm/input->actions fsm)
                                                              (#(get % fsm/pre))
@@ -239,17 +244,31 @@
                                                             value##)
                                                          `(recur ~(state->index state) start-index## stream-index## ~next-input))))))))))
 
+                                    ;; default value
                                     :else
                                     ~(if-let [default-state (fsm/next-state fsm state fsm/default)]
-                                       (if ((fsm/accept fsm) default-state)
-                                         `(automat.core.CompiledAutomatonState.
-                                            true
-                                            nil
-                                            ~(state->index default-state)
-                                            start-index##
-                                            stream-index##
-                                            value##)
-                                         `(recur ~(state->index default-state) start-index## stream-index## ~next-input))
+                                       (let [actions (input->actions fsm/default)]
+                                         `(do
+
+                                            ~@(when-let [action-syms (->> actions
+                                                                       (map action->sym)
+                                                                       (remove nil?)
+                                                                       seq)]
+                                                `((set! value##
+                                                    ~(reduce
+                                                       (fn [form fn] `(~fn ~form input##))
+                                                       `value##
+                                                       action-syms))))
+
+                                            ~(if ((fsm/accept fsm) default-state)
+                                               `(automat.core.CompiledAutomatonState.
+                                                  true
+                                                  nil
+                                                  ~(state->index default-state)
+                                                  start-index##
+                                                  stream-index##
+                                                  value##)
+                                               `(recur ~(state->index default-state) start-index## stream-index## ~next-input))))
                                        (reject-clause next-input)))))))))))))))))
 
 (defn- canonicalize-states [fsm]

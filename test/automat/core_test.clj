@@ -81,6 +81,13 @@
           (= expected (:value (reduce #(a/advance fsm' %1 %2) nil s))))
         (partition 2 input-seqs)))
 
+    (a/or
+      (a/interpose-$ :conj [1 a/any 3])
+      [1 2 3])
+
+    [[1 2 3] [1 2 3]
+     [1 9 3] [1 9 3]]
+
     (a/interpose-$ :conj [1 2 3 4])
     [[1] [1]
      [1 2] [1 2]
