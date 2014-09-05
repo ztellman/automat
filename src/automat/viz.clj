@@ -64,13 +64,7 @@
                                       (= a/reject n) "REJ"
                                       (number? (state->index n)) (str (state->index n)))}))
       :edge->descriptor (fn [src dst]
-                          (let [input->actions (a/input->actions fsm src)
-                                input->actions (fn [input]
-                                                 (set/union
-                                                   (get input->actions input)
-                                                   (get input->actions a/default)))
-
-                                pre-actions (get (a/input->actions fsm dst) a/pre)]
+                          (let [pre-actions (a/actions fsm src a/pre)]
                             (if (nil? src)
 
                               ;; entry to start state
@@ -82,7 +76,7 @@
                               (->> (src+dst->inputs src dst)
                                 (group-by
                                   #(set/union
-                                     (input->actions %)
+                                     (a/actions fsm src %)
                                      pre-actions))
                                 (map
                                   (fn [[actions inputs]]

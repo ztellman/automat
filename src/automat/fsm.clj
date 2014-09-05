@@ -87,6 +87,11 @@
   (input->actions [_ state] "A map of inputs onto actions for a given input")
   (gensym-states [_]))
 
+(defn actions
+  "Return set of actions for the given state and input."
+  [fsm state input]
+  (get (input->actions fsm state) input))
+
 (defn nfa
   "Creates an NFA."
   [start accept state->input->states state->input->actions]
@@ -427,8 +432,8 @@
               (cartesian other))
             (filter
               (fn [[a b]]
-                (= (get (input->actions fsm a) pre)
-                  (get (input->actions fsm b) pre))))
+                (= (actions fsm a pre)
+                  (actions fsm b pre))))
             set)]
     (loop [equivalent s, prev nil]
       (if (= prev equivalent)
@@ -656,7 +661,7 @@
    (zipmap* (states fsm) #(input->state fsm %))
    (zipmap* (states fsm) #(input->actions fsm %))))
 
-(defn- merge-fsms [a b accept-states]
+(defn- merge-fsms [a b accept-states actions]
   (let [a (gensym-states (->dfa a))
         b (gensym-states (->dfa b))
         cartesian-states (for [s-a (states a), s-b (states b)]
@@ -697,9 +702,9 @@
           (zipmap*
             cartesian-states
             (fn [^State state]
-              (let [sub-states (.sub-states state)
-                    [s-a s-b] sub-states]
-                (merge-with set/union
+              (let [[s-a s-b] (.sub-states state)]
+                (actions a b s-a s-b)
+                #_(merge-with set/union
                   (input->actions a s-a)
                   (input->actions b s-b))))))]
 
@@ -727,7 +732,11 @@
      (merge-fsms a b
        (fn [a b]
          (for [s-a (accept a), s-b (accept b)]
-           (join-states s-a s-b)))))
+           (join-states s-a s-b)))
+       (fn [a b s-a s-b]
+         (merge-with set/union
+           (input->actions a s-a)
+           (input->actions b s-b)))))
   ([a b & rest]
      (apply intersection (intersection a b) rest)))
 
@@ -746,7 +755,23 @@
                (join-states s-a s-b)))
            (set
              (for [s-a (states a), s-b (accept b)]
-               (join-states s-a s-b)))))))
+               (join-states s-a s-b)))))
+       (fn [a b s-a s-b]
+         (let [s-a-default (actions a s-a default)
+               s-b-default (actions b s-b default)
+               inputs (->> [(input->actions a s-a)
+                            (input->actions b s-b)]
+                        (map keys)
+                        (apply clojure.core/concat)
+                        distinct)]
+           (zipmap*
+             inputs
+             (fn [input]
+               (apply set/union
+                 (actions a s-a input)
+                 (actions b s-b input)
+                 (when-not (= pre input)
+                   [s-a-default s-b-default]))))))))
   ([a b & rest]
      (apply union (union a b) rest)))
 
@@ -761,6 +786,10 @@
            (accept a)
            (set
              (for [s-a (accept a), s-b (set/difference (states b) (accept b))]
-               (join-states s-a s-b)))))))
+               (join-states s-a s-b)))))
+       (fn [a b s-a s-b]
+         (merge-with set/difference
+           (input->actions a s-a)
+           (input->actions b s-b)))))
   ([a b & rest]
      (apply difference (difference a b) rest)))
