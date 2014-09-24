@@ -3,12 +3,12 @@
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[rhizome "0.2.1"]
-                 [primitive-math "0.1.3"]
-                 [potemkin "0.3.4"]
+                 [primitive-math "0.1.4"]
+                 [potemkin "0.3.9"]
                  [riddley "0.1.7"]
                  [proteus "0.1.4"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.6.0"]
-                                  [org.clojure/test.check "0.5.8"]
+                                  [org.clojure/test.check "0.5.9"]
                                   [criterium "0.4.3"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}}
   :test-selectors {:default #(every? (complement #{:stress :benchmark}) (keys %))
