@@ -8,6 +8,7 @@
     [proteus :refer (let-mutable)]
     [automat.compiler.core :as core]
     [automat.compiler.eval :as eval]
+    [automat.compiler.base :as base]
     [automat.fsm :as fsm]
     [automat.stream :as stream]
     [primitive-math :as p])
@@ -124,7 +125,27 @@
      (let [state (->automaton-state fsm state)]
        (advance-stream fsm state [(normalize-input input)] reject-value))))
 
-;;; define these last, so we don't use them mistakenly above
+(defn compile
+  "Compiles the fsm into something that can be used with `find`, `advance-stream`, `greedy-find`, and `advance`.  Optionally takes an option map, which may contain:
+
+    `reducers` - a map or function of actions defined via `$` onto reducer functions which take two arguments, the current reduction value and the input.
+
+    `signal` - a function that takes an input and returns the signal that will be used to advance the automaton.  The input passed into reducer functions will not be affected by this."
+  ([fsm]
+     (compile fsm nil))
+  ([fsm {:keys [reducers signal backend] :as options}]
+     (if (instance? ICompiledAutomaton fsm)
+       fsm
+       (let [fsm (-> fsm core/parse-automata fsm/final-minimize)
+             backend (clojure.core/or backend
+                       (if (< (-> fsm fsm/states count) 30)
+                         :eval
+                         :base))]
+         (case backend
+           :eval (eval/compile fsm options)
+           :base (base/compile fsm options))))))
+
+;;; define these last, so we don't use them mistakenly elsewhere
 
 (defn or
   "Returns an automaton that accepts the union of the given automata."
@@ -176,19 +197,3 @@
   none (fsm/empty-automaton))
 
 ;;;
-
-
-
-(defn compile
-  "Compiles the fsm into something that can be used with `find`, `advance-stream`, `greedy-find`, and `advance`.  Optionally takes an option map, which may contain:
-
-    `reducers` - a map or function of actions defined via `$` onto reducer functions which take two arguments, the current reduction value and the input.
-
-    `signal` - a function that takes an input and returns the signal that will be used to advance the automaton.  The input passed into reducer functions will not be affected by this."
-  ([fsm]
-     (compile fsm nil))
-  ([fsm {:keys [reducers signal] :as options}]
-     (if (instance? ICompiledAutomaton fsm)
-       fsm
-       (let [fsm (fsm/final-minimize (parse-automata fsm))]
-         (eval/compile fsm options)))))

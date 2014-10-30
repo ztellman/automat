@@ -65,7 +65,10 @@
     (clojure.core/and (string? x) (= 1 (count x))) (int (first x))
     :else x))
 
-(defn parse-automata [s]
+(defn parse-automata
+  "Takes either an input, automaton, or sequence of automatons and inputs,
+   and returns their concatenation."
+  [s]
   (let [s (if (sequential? s)
             s
             [s])]
@@ -80,3 +83,63 @@
              :else (fsm/automaton (parse-input %))))
         (apply fsm/concat)
         fsm/minimize))))
+
+(defn- canonicalize-states [fsm]
+  (loop [state->index {}, to-search [(fsm/start fsm)]]
+    (if (empty? to-search)
+      state->index
+      (let [state->index (reduce
+                           (fn [m s]
+                             (if (contains? m s)
+                               m
+                               (assoc m s (count m))))
+                           state->index
+                           to-search)]
+        (recur
+          state->index
+          (->> to-search
+            (mapcat #(distinct (vals (fsm/input->state fsm %))))
+            (remove #(contains? state->index %))))))))
+
+(defn precompile
+  "Takes an fsm, and returns a data structure where states are represented by
+   numbers, and the provided keys are :accept, :state->input->state,
+   and :state->input->actions.  The start state will always be `0`."
+  [fsm]
+  (let [fsm (-> fsm parse-automata fsm/final-minimize)
+        state->index (canonicalize-states fsm)
+
+        accept
+        (->> fsm fsm/accept (map state->index) set)
+
+        state->input->state
+        (zipmap
+          (->> fsm fsm/states (map state->index))
+          (->> fsm
+            fsm/states
+            (map
+              (fn [state]
+                (let [input->state (fsm/input->state fsm state)]
+                  (zipmap
+                    (keys input->state)
+                    (map state->index (vals input->state))))))))
+
+        state->input->actions
+        (zipmap
+          (->> fsm fsm/states (map state->index))
+          (->> fsm
+            fsm/states
+            (map #(fsm/input->actions fsm %))))]
+
+    {:accept accept
+     :state->input->state state->input->state
+     :state->input->actions state->input->actions}))
+
+(defn states
+  "Returns a list of states for a precompiled automaton"
+  [precompiled-fsm]
+  (sort
+    (distinct
+      (concat
+        (-> precompiled-fsm :state->input->state keys)
+        (->> precompiled-fsm :state->input->state vals (mapcat vals))))))

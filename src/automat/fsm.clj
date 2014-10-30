@@ -84,7 +84,7 @@
   (start [_] "The start state for the automata.")
   (accept [_] "The set of accept states for the automata.")
   (input->state [_ state] "A map of inputs onto a state (if deterministic) or a set of states (if non-deterministic).")
-  (input->actions [_ state] "A map of inputs onto actions for a given input")
+  (input->actions [_ state] "A map of inputs onto actions for a given state")
   (gensym-states [_]))
 
 (defn actions

@@ -1,12 +1,13 @@
 (ns automat.viz
   (:require
+    [automat.compiler.core :as compiler]
     [clojure.set :as set]
     [automat.core :as c]
     [automat.fsm :as a]
     [rhizome.dot :as r]
     [rhizome.viz :as v])
   (:import
-    [automat.core
+    [automat.compiler.core
      ICompiledAutomaton]))
 
 (defn- pprint-inputs
@@ -32,27 +33,21 @@
 
 (defn fsm->dot
   [fsm options]
-  (let [state->index (if (instance? ICompiledAutomaton fsm)
-                       (-> fsm meta :state->index)
-                       (constantly nil))
-        fsm (if (instance? ICompiledAutomaton fsm)
-              (-> fsm meta :fsm)
-              (-> fsm c/parse-automata a/final-minimize))
-        accept? (a/accept fsm)
-        adjacent-fn (if (a/deterministic? fsm)
-                      distinct
-                      #(distinct (apply concat %)))
+  (let [fsm (compiler/precompile
+              (if (instance? ICompiledAutomaton fsm)
+                (-> fsm meta :fsm)
+                fsm))
+        states (compiler/states fsm)
+        accept? (:accept fsm)
         src+dst->inputs (fn [src dst]
-                          (->> (a/input->state fsm src)
-                            (filter (if (a/deterministic? fsm)
-                                      #(= dst (val %))
-                                      #(contains? (val %) dst)))
+                          (->> (get-in fsm [:state->input->state src])
+                            (filter #(= dst (val %)))
                             (map key)))]
     (r/graph->dot
-      (conj (a/states fsm) nil)
+      (conj states nil)
       #(if-not %
-         [(a/start fsm)]
-         (->> % (a/input->state fsm) vals adjacent-fn))
+         [0]
+         (->> (get-in fsm [:state->input->state %]) vals distinct))
       :options options
       :vertical? false
       :node->descriptor (fn [n]
@@ -62,9 +57,9 @@
                              :peripheries (when (accept? n) 2)
                              :label (cond
                                       (= a/reject n) "REJ"
-                                      (number? (state->index n)) (str (state->index n)))}))
+                                      :else n)}))
       :edge->descriptor (fn [src dst]
-                          (let [pre-actions (a/actions fsm src a/pre)]
+                          (let [pre-actions (get-in fsm [:state->input->actions src a/pre])]
                             (if (nil? src)
 
                               ;; entry to start state
@@ -76,7 +71,7 @@
                               (->> (src+dst->inputs src dst)
                                 (group-by
                                   #(set/union
-                                     (a/actions fsm src %)
+                                     (get-in fsm [:state->input->actions src %])
                                      pre-actions))
                                 (map
                                   (fn [[actions inputs]]
