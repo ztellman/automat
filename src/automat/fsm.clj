@@ -35,13 +35,6 @@
           (= descriptor (.descriptor x))
           (= sub-states (.sub-states x)))))))
 
-(defn- conj-generation [^State s gen]
-  (State.
-    (conj (.generation s) gen)
-    (.descriptor s)
-    (.sub-states s)
-    (.action s)))
-
 (defn- assoc-action [^State s action]
   (State.
     (.generation s)
@@ -53,6 +46,15 @@
 (def ^:const default "An input representing a default" ::default)
 (def ^:const pre "An input representing a pre-action" ::pre)
 (def ^:const reject  "A state representing rejection"  ::rejection)
+
+(defn- conj-generation [^State s gen]
+  (if (identical? reject s)
+    reject
+    (State.
+      (conj (.generation s) gen)
+      (.descriptor s)
+      (.sub-states s)
+      (.action s))))
 
 (defn- state
   ([]

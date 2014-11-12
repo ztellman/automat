@@ -48,7 +48,6 @@
               (inc stream-index)))
 
           (if restart?
-            ::reject
             (recur
               (if (= state 0)
                 (signal (.nextInput stream ::eof))
@@ -58,7 +57,8 @@
               stream-index
               (if (= state 0)
                 (inc stream-index)
-                stream-index))))))))
+                stream-index))
+            ::reject))))))
 
 (defn compile
   [fsm
@@ -79,12 +79,14 @@
             0
             0
             initial-value))
-        (find [_ state stream]
-          (if (.accepted? ^CompiledAutomatonState state)
-            state
-            (advance fsm state stream signal reducers true)))
-        (advance-stream [_ state stream reject-value]
-          (let [state' (advance fsm state stream signal false)]
+        (find [this state stream]
+          (let [state (core/->automaton-state this state)]
+            (if (.accepted? ^CompiledAutomatonState state)
+              state
+              (advance fsm state stream signal reducers true))))
+        (advance-stream [this state stream reject-value]
+          (let [state (core/->automaton-state this state)
+                state' (advance fsm state stream signal false)]
             (if (identical? ::reject state')
               reject-value
               state'))))
