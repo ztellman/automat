@@ -16,123 +16,126 @@
       (= start-index (:start-index state))
       (= stream-index (:stream-index state)))))
 
-(deftest test-find
-  (are [fsm input-seqs]
-    (let [fsm' (a/compile fsm)]
-      (every?
-        (fn [[start end s]]
-          (accepts? a/find fsm' start end s))
-        (partition 3 input-seqs)))
+(doseq [backend [:eval :base]]
 
-    a/any
-    [0 1 [1]
-     0 1 [2 3]
-     0 1 [3 3 3]]
+  (deftest test-find
+    (testing backend
+      (are [fsm input-seqs]
+           (let [fsm' (a/compile fsm {:backend backend})]
+             (every?
+              (fn [[start end s]]
+                (accepts? a/find fsm' start end s))
+              (partition 3 input-seqs)))
 
-    [(list 1 2) (list 3)]
-    [0 2 [[1 2] [3]]]
+           a/any
+           [0 1 [1]
+            0 1 [2 3]
+            0 1 [3 3 3]]
 
-    (a/+ :a)
-    [0 1 [:a :a]
-     1 2 [:b :a :a]]
+           [(list 1 2) (list 3)]
+           [0 2 [[1 2] [3]]]
 
-    (a/+ 1)
-    [0 1 [1 1]
-     1 2 [0 1 1]]
+           (a/+ :a)
+           [0 1 [:a :a]
+            1 2 [:b :a :a]]
 
-    [1 2 3]
-    [0 3 [1 2 3]
-     2 5 [1 1 1 2 3 2 1]]
+           (a/+ 1)
+           [0 1 [1 1]
+            1 2 [0 1 1]]
 
-    (a/or
-      [1 2 3]
-      [2 3])
-    [0 3 [1 2 3]
-     0 2 [2 3]
-     1 3 [0 2 3]]
+           [1 2 3]
+           [0 3 [1 2 3]
+            2 5 [1 1 1 2 3 2 1]]
 
-    ))
+           (a/or
+            [1 2 3]
+            [2 3])
+           [0 3 [1 2 3]
+            0 2 [2 3]
+            1 3 [0 2 3]])))
 
-(deftest test-greedy-find
-  (are [fsm input-seqs]
-    (let [fsm' (a/compile fsm)]
-      (every?
-        (fn [[start end s]]
-          (accepts? a/greedy-find fsm' start end s))
-        (partition 3 input-seqs)))
+  (deftest test-greedy-find
+    (testing backend
+      (are [fsm input-seqs]
+           (let [fsm' (a/compile fsm {:backend backend})]
+             (every?
+              (fn [[start end s]]
+                (accepts? a/greedy-find fsm' start end s))
+              (partition 3 input-seqs)))
 
-    a/any
-    [0 1 [1]
-     0 1 [2 3]]
+           a/any
+           [0 1 [1]
+            0 1 [2 3]]
 
-    (a/+ 1)
-    [0 2 [1 1]
-     1 3 [0 1 1 0]]
+           (a/+ 1)
+           [0 2 [1 1]
+            1 3 [0 1 1 0]])))
 
-    ))
+  (deftest test-advance
+    (testing backend
+      (are [fsm input-seqs]
+           (let [fsm' (a/compile
+                       [(a/$ :init) fsm]
+                       {:reducers {:init (constantly []), :conj conj, :conj_ conj}
+                        :backend backend})]
+             (every?
+              (fn [[expected s]]
+                (= expected (:value (reduce #(a/advance fsm' %1 %2) nil s))))
+              (partition 2 input-seqs)))
 
-(deftest test-advance
-  (are [fsm input-seqs]
-    (let [fsm' (a/compile
-                 [(a/$ :init) fsm]
-                 {:reducers {:init (constantly []), :conj conj, :conj_ conj}})]
-      (every?
-        (fn [[expected s]]
-          (= expected (:value (reduce #(a/advance fsm' %1 %2) nil s))))
-        (partition 2 input-seqs)))
+           (a/or
+            (a/interpose-$ :conj [1 a/any 3])
+            [1 2 3])
+           [[1 2 3] [1 2 3]
+            [1 9 3] [1 9 3]]
 
-    (a/or
-      (a/interpose-$ :conj [1 a/any 3])
-      [1 2 3])
-    [[1 2 3] [1 2 3]
-     [1 9 3] [1 9 3]]
+           [(a/interpose-$ :conj (a/* a/any))
+            (a/interpose-$ :conj [1 2])]
+           [[0 1 2] [0 1 2]]
 
-    [(a/interpose-$ :conj (a/* a/any))
-     (a/interpose-$ :conj [1 2])]
-    [[0 1 2] [0 1 2]]
+           [(a/interpose-$ :conj (a/* a/any))
+            (a/interpose-$ :conj_ [1 2])]
+           [[0 1 2] [0 1 2]]
 
-    [(a/interpose-$ :conj (a/* a/any))
-     (a/interpose-$ :conj_ [1 2])]
-    [[0 1 2] [0 1 2]]
+           (a/interpose-$ :conj [1 2 3 4])
+           [[1] [1]
+            [1 2] [1 2]
+            [1 2 3] [1 2 3]
+            [1 2 3 4] [1 2 3 4]]
 
-    (a/interpose-$ :conj [1 2 3 4])
-    [[1] [1]
-     [1 2] [1 2]
-     [1 2 3] [1 2 3]
-     [1 2 3 4] [1 2 3 4]]
+           [1 (a/$ :conj) (a/$ :conj)]
+           [[1] [1]]
 
-    [1 (a/$ :conj) (a/$ :conj)]
-    [[1] [1]]
+           [1 a/any (a/$ :conj) 3 4 (a/$ :conj)]
+           [[2 4] [1 2 3 4]]
 
-    [1 a/any (a/$ :conj) 3 4 (a/$ :conj)]
-    [[2 4] [1 2 3 4]]
+           [(a/or
+             (a/interpose-$ :conj [1 2 3])
+             [4])
+            (a/$ :conj)
+            5]
+           [[1 2 3] [1 2 3 5]
+            [4] [4 5]]
 
-    [(a/or
-       (a/interpose-$ :conj [1 2 3])
-       [4])
-     (a/$ :conj)
-     5]
-    [[1 2 3] [1 2 3 5]
-     [4] [4 5]]
+           [1 (a/$ :conj) 2 (a/$ :init) 3 (a/$ :conj) 4 (a/$ :conj)]
+           [[1] [1]
+            [] [1 2]
+            [3] [1 2 3]
+            [3 4] [1 2 3 4]]))
 
-    [1 (a/$ :conj) 2 (a/$ :init) 3 (a/$ :conj) 4 (a/$ :conj)]
-    [[1] [1]
-     [] [1 2]
-     [3] [1 2 3]
-     [3 4] [1 2 3 4]])
+    (are [fsm input-seqs]
+         (let [fsm' (a/compile
+                     [(a/$ :init) fsm]
+                     {:reducers {:init (constantly []), :conj conj}
+                      :signal inc
+                      :backend backend})]
+           (every?
+            (fn [[expected s]]
+              (= expected (:value (reduce #(a/advance fsm' %1 %2) nil s))))
+            (partition 2 input-seqs)))
 
-  (are [fsm input-seqs]
-    (let [fsm' (a/compile
-                 [(a/$ :init) fsm]
-                 {:reducers {:init (constantly []), :conj conj}
-                  :signal inc})]
-      (every?
-        (fn [[expected s]]
-          (= expected (:value (reduce #(a/advance fsm' %1 %2) nil s))))
-        (partition 2 input-seqs)))
-
-    (a/interpose-$ :conj [1 2 3 4])
-    [[0] [0]]))
+         (a/interpose-$ :conj [1 2 3 4])
+         [[0] [0]])))
 
 ;;;
 
