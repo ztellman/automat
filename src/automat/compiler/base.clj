@@ -12,60 +12,84 @@
      IAutomaton]))
 
 (defn advance [fsm state stream signal reducers restart?]
-  (let [^CompiledAutomatonState state state
+  (let [signal #(if (identical? % ::eof) % (signal %))
+        ^CompiledAutomatonState original-state state
         ^automat.utils.InputStream stream (stream/to-stream stream)
-        start-index (.start-index state)
-        stream-index (.stream-index state)]
-    (loop [input (signal (.nextInput stream ::eof))
-           value (.value state)
-           state (.state-index state)
-           start-index start-index
-           stream-index stream-index]
+        original-stream-index (.stream-index original-state)]
+    (loop [original-input (.nextInput stream ::eof)
+           value (.value original-state)
+           state (.state-index original-state)
+           start-index (.start-index original-state)
+           stream-index original-stream-index]
 
-      (if (identical? ::eof input)
+      (let [input (signal original-input)]
+        (if (identical? ::eof input)
 
-        (CompiledAutomatonState.
-          (boolean (contains? (:accept fsm) state))
-          nil
-          state
-          start-index
-          stream-index
-          value)
-
-        (if-let [state' (or
-                          (get-in fsm [:state->input->state state input])
-                          (get-in fsm [:state->input->state state fsm/default]))]
-
-          (let [value' (->> (get-in fsm [:state->input->actions state input])
-                         (map reducers)
-                         (remove nil?)
-                         (reduce #(%2 %1) value))]
-            (recur
-              (signal (.nextInput stream ::eof))
-              value'
-              (long state')
+          (if (== original-stream-index stream-index)
+            original-state
+            (CompiledAutomatonState.
+              (boolean (contains? (:accept fsm) state))
+              nil
+              state
               start-index
-              (inc stream-index)))
-
-          (if restart?
-            (recur
-              (if (= state 0)
-                (signal (.nextInput stream ::eof))
-                input)
-              value
-              0
               stream-index
-              (if (= state 0)
+              value))
+
+          (let [state'' (get-in fsm [:state->input->state state input])
+                state'  (or state'' (get-in fsm [:state->input->state state fsm/default]))
+                default? (not (identical? state'' state'))
+                value' (if state'
+                         (->> (concat
+                                (get-in fsm [:state->input->actions state fsm/pre])
+                                (when-not default?
+                                  (get-in fsm [:state->input->actions state input]))
+                                (when default?
+                                  (get-in fsm [:state->input->actions state fsm/default])))
+                           distinct
+                           (map reducers)
+                           (remove nil?)
+                           (reduce #(%2 %1 original-input) value))
+                         value)
+                stream-index' (if (= state 0)
+                                (inc stream-index)
+                                stream-index)]
+
+            (cond
+              (or (nil? state') (identical? fsm/reject state'))
+              (if restart?
+                (recur
+                  (if (= state 0)
+                    (signal (.nextInput stream ::eof))
+                    input)
+                  value'
+                  0
+                  stream-index'
+                  stream-index')
+                ::reject)
+
+              (contains? (:accept fsm) state')
+              (CompiledAutomatonState.
+                true
+                nil
+                state'
+                start-index
                 (inc stream-index)
-                stream-index))
-            ::reject))))))
+                value')
+
+              :else
+              (recur
+                (.nextInput stream ::eof)
+                value'
+                (long state')
+                start-index
+                (inc stream-index)))))))))
 
 (defn compile
   [fsm
-   {:keys [reducers signal]
+   {:keys [reducers signal action-comparator]
     :or {signal identity}}]
   (let [base-fsm fsm
-        fsm (core/precompile fsm)
+        fsm (core/precompile fsm action-comparator)
         initially-accepted? (contains? (:accept fsm) 0)]
 
     (with-meta
@@ -86,7 +110,7 @@
               (advance fsm state stream signal reducers true))))
         (advance-stream [this state stream reject-value]
           (let [state (core/->automaton-state this state)
-                state' (advance fsm state stream signal false)]
+                state' (advance fsm state stream signal reducers false)]
             (if (identical? ::reject state')
               reject-value
               state'))))

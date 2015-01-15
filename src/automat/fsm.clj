@@ -458,11 +458,12 @@
                 (if-not (every?
                             #(let [a' (next-state fsm a %)
                                    b' (next-state fsm b %)]
-                               (if (and a' b')
-                                 (and
-                                   (= (actions fsm a %) (actions fsm b %))
-                                   (equivalent (tuple a' b')))
-                                 (= a' b')))
+                               (and
+                                 (= (actions fsm a :pre) (actions fsm b :pre))
+                                 (= (actions fsm a %) (actions fsm b %))
+                                 (if (and a' b')
+                                   (equivalent (tuple a' b'))
+                                   (= a' b'))))
                             inputs)
                   (disj equivalent [a b])
                   equivalent)))

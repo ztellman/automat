@@ -104,36 +104,49 @@
 (defn precompile
   "Takes an fsm, and returns a data structure where states are represented by
    numbers, and the provided keys are :accept, :state->input->state,
-   and :state->input->actions.  The start state will always be `0`."
-  [fsm]
-  (let [fsm (-> fsm parse-automata fsm/final-minimize)
-        state->index (canonicalize-states fsm)
+   and :state->input->actions.  The start state will always be `0`.
 
-        accept
-        (->> fsm fsm/accept (map state->index) set)
+   If the order of actions is important, an `action-comparator` may be defined."
+  ([fsm]
+     (precompile fsm nil))
+  ([fsm action-comparator]
+     (let [fsm (-> fsm parse-automata fsm/final-minimize)
+           state->index (canonicalize-states fsm)
 
-        state->input->state
-        (zipmap
-          (->> fsm fsm/states (map state->index))
-          (->> fsm
-            fsm/states
-            (map
-              (fn [state]
-                (let [input->state (fsm/input->state fsm state)]
-                  (zipmap
-                    (keys input->state)
-                    (map state->index (vals input->state))))))))
+           accept
+           (->> fsm fsm/accept (map state->index) set)
 
-        state->input->actions
-        (zipmap
-          (->> fsm fsm/states (map state->index))
-          (->> fsm
-            fsm/states
-            (map #(fsm/input->actions fsm %))))]
+           state->input->state
+           (zipmap
+             (->> fsm fsm/states (map state->index))
+             (->> fsm
+               fsm/states
+               (map
+                 (fn [state]
+                   (let [input->state (fsm/input->state fsm state)]
+                     (zipmap
+                       (keys input->state)
+                       (map state->index (vals input->state))))))))
 
-    {:accept accept
-     :state->input->state state->input->state
-     :state->input->actions state->input->actions}))
+           state->input->actions
+           (zipmap
+             (->> fsm fsm/states (map state->index))
+             (->> fsm
+               fsm/states
+               (map
+                 (fn [state]
+                   (let [input->actions (fsm/input->actions fsm state)]
+                     (zipmap
+                       (keys input->actions)
+                       (map
+                         (if action-comparator
+                           (comp vec (partial sort-by action-comparator))
+                           vec)
+                         (vals input->actions))))))))]
+
+       {:accept accept
+        :state->input->state state->input->state
+        :state->input->actions state->input->actions})))
 
 (defn states
   "Returns a list of states for a precompiled automaton"

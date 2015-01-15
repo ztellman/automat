@@ -164,11 +164,11 @@
 (def ^:dynamic *signal*)
 
 (defn compile
-  [fsm {:keys [reducers signal]}]
+  [fsm {:keys [reducers signal action-comparator]}]
   (if (instance? ICompiledAutomaton fsm)
     fsm
     (let [base-fsm fsm
-          fsm (core/precompile fsm)
+          fsm (core/precompile fsm action-comparator)
           action->sym (zipmap
                         (->> fsm
                           :state->input->actions

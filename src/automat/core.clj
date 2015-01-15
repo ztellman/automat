@@ -130,10 +130,12 @@
 
     `reducers` - a map or function of actions defined via `$` onto reducer functions which take two arguments, the current reduction value and the input.
 
-    `signal` - a function that takes an input and returns the signal that will be used to advance the automaton.  The input passed into reducer functions will not be affected by this."
+    `signal` - a function that takes an input and returns the signal that will be used to advance the automaton.  The input passed into reducer functions will not be affected by this.
+
+    `action-comparator` - an optional comparator function which specifies an order in which actions should be performed."
   ([fsm]
      (compile fsm nil))
-  ([fsm {:keys [reducers signal backend] :as options}]
+  ([fsm {:keys [reducers signal backend action-comparator] :as options}]
      (if (instance? ICompiledAutomaton fsm)
        fsm
        (let [fsm (-> fsm core/parse-automata fsm/final-minimize)
