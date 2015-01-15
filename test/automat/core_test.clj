@@ -3,7 +3,7 @@
     [clojure.test :refer :all]
     [automat.core :as a]
     [automat.fsm :as fsm]
-    [automat.viz :refer :all]
+    #_[automat.viz :refer :all]
     [criterium.core :as c])
   (:import
     [java.nio
