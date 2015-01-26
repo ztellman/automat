@@ -1,13 +1,18 @@
 (ns automat.fsm
-  (:refer-clojure :exclude
-    [concat complement])
+  (:refer-clojure :exclude [concat complement])
+  #+clj
   (:use
-    [potemkin.types])
+   [potemkin.types])
   (:require
-    [primitive-math :as p]
-    [clojure.set :as set]))
+   [clojure.set :as set]
+   #+clj [clojure.core :as clj]
+   #+cljs [cljs.core :as clj :include-macros true]
+   #+clj [primitive-math :as p]))
 
-;;;
+(def ^:const epsilon "An input representing no input." ::epsilon)
+(def ^:const default "An input representing a default" ::default)
+(def ^:const pre "An input representing a pre-action" ::pre)
+(def ^:const reject  "A state representing rejection"  ::rejection)
 
 (let [cnt (atom 0)]
   (defn- new-generation []
@@ -15,46 +20,54 @@
   (defn reset-generations []
     (reset! cnt 0)))
 
-(deftype+ State
+(#+clj deftype+ #+cljs deftype State
   [generation
    descriptor
    sub-states
    action]
   Object
+  #+clj
   (hashCode [_]
-    (p/+
-      (hash generation)
-      (hash descriptor)
-      (hash sub-states)))
-  (equals [_ x]
-    (and
-      (instance? State x)
-      (let [^State x x]
-        (and
-          (= generation (.generation x))
-          (= descriptor (.descriptor x))
-          (= sub-states (.sub-states x)))))))
+   (p/+
+    (hash generation)
+    (hash descriptor)
+    (hash sub-states)))
+  #+cljs
+  (equiv [this x] (-equiv this x))
+  #+cljs
+  IEquiv
+  (#+clj equals #+cljs -equiv [_ x]
+   (and
+    (instance? State x)
+    (let [^State x x]
+      (and
+       (= generation (.-generation x))
+       (= descriptor (.-descriptor x))
+       (= sub-states (.-sub-states x))))))
+  #+cljs
+  IHash
+  #+cljs
+  (-hash [_]
+   (+
+    (hash generation)
+    (hash descriptor)
+    (hash sub-states))))
 
 (defn- assoc-action [^State s action]
   (State.
-    (.generation s)
-    (.descriptor s)
-    (.sub-states s)
+    (.-generation s)
+    (.-descriptor s)
+    (.-sub-states s)
     action))
 
-(def ^:const epsilon "An input representing no input." ::epsilon)
-(def ^:const default "An input representing a default" ::default)
-(def ^:const pre "An input representing a pre-action" ::pre)
-(def ^:const reject  "A state representing rejection"  ::rejection)
-
 (defn- conj-generation [^State s gen]
-  (if (identical? reject s)
+  (if (#+clj identical? #+cljs keyword-identical? reject s)
     reject
     (State.
-      (conj (.generation s) gen)
-      (.descriptor s)
-      (.sub-states s)
-      (.action s))))
+      (conj (.-generation s) gen)
+      (.-descriptor s)
+      (.-sub-states s)
+      (.-action s))))
 
 (defn- state
   ([]
@@ -62,24 +75,24 @@
   ([x]
      (cond
        (instance? State x) x
-       (identical? x reject) x
+       (#+clj identical? #+cljs keyword-identical? x reject) x
        :else (State. nil x #{} nil))))
 
 (defn action [^State s]
   (when (instance? State s)
-    (.action s)))
+    (.-action s)))
 
 (defn- join-states
   ([^State s]
-     (if (identical? reject s)
+     (if (#+clj identical? #+cljs keyword-identical? reject s)
        s
-       (State. (.generation s) (.descriptor s) (.sub-states s) nil)))
+       (State. (.-generation s) (.-descriptor s) (.-sub-states s) nil)))
   ([s & rest]
      (State. nil nil (vec (list* s rest)) nil)))
 
 ;;;
 
-(definterface+ IAutomaton
+(#+clj definterface+ #+cljs defprotocol IAutomaton
   (deterministic? [_] "Returns true if the automata is a DFA, false otherwise.")
   (states [_] "The set of possible states within the automata.")
   (alphabet [_] "The set of possible inputs for the automata.")
@@ -88,6 +101,9 @@
   (input->state [_ state] "A map of inputs onto a state (if deterministic) or a set of states (if non-deterministic).")
   (input->actions [_ state] "A map of inputs onto actions for a given state")
   (gensym-states [_]))
+
+(defn automaton? [x]
+  (#+clj instance? #+cljs satisfies? IAutomaton x))
 
 (defn actions
   "Return set of actions for the given state and input."
@@ -280,7 +296,7 @@
          (let [accept (->> state->input->state
                         vals
                         (mapcat vals)
-                        (clojure.core/concat (keys state->input->state))
+                        (clj/concat (keys state->input->state))
                         (filter #(intersects? (accept fsm) %))
                         set)]
            (dfa
@@ -363,7 +379,7 @@
             (map
               (fn [[input actions]]
                 [input
-                 (if (identical? pre input)
+                 (if (#+clj identical? #+cljs keyword-identical? pre input)
                    actions
                    (conj (or actions #{}) action))]))
             (into {})))))))
@@ -429,7 +445,7 @@
         tuple #(if (< (state->index %1) (state->index %2)) [%1 %2] [%2 %1])
         cartesian #(distinct (for [x % y %] (tuple x y)))
         s (->>
-            (clojure.core/concat
+            (clj/concat
               (cartesian accept)
               (cartesian other))
             (filter
@@ -451,7 +467,7 @@
           (reduce
             (fn [equivalent [a b]]
               (let [inputs (->
-                             (clojure.core/concat
+                             (clj/concat
                                (keys (input->state fsm a))
                                (keys (input->state fsm b)))
                              set)]
@@ -573,11 +589,11 @@
               (and (number? a) (number? b))
               (compare a b)
 
-              (and (char? a) (char? b))
-              (compare a b)
+              #+clj (and (char? a) (char? b))
+              #+clj (compare a b)
 
               :else
-              (compare (str (class a)) (str (class b)))))]
+              (compare (str (type a)) (str (type b)))))]
     (loop [accumulator [], start nil, end nil, s (sort-by identity f s)]
       (if (empty? s)
         (if end
@@ -586,7 +602,7 @@
         (let [x (first s)]
           (cond
 
-            (and end (== (inc (int end)) (int x)))
+            (and (number? end) (= (inc (int end)) (int x)))
             (recur accumulator start x (rest s))
 
             end
@@ -684,7 +700,7 @@
           (zipmap*
             cartesian-states
             (fn [^State state]
-              (let [sub-states (.sub-states state)
+              (let [sub-states (.-sub-states state)
                     [s-a s-b] sub-states]
                 (merge
                   (input->state a s-a)
@@ -707,11 +723,8 @@
           (zipmap*
             cartesian-states
             (fn [^State state]
-              (let [[s-a s-b] (.sub-states state)]
-                (actions a b s-a s-b)
-                #_(merge-with set/union
-                  (input->actions a s-a)
-                  (input->actions b s-b))))))]
+              (let [[s-a s-b] (.-sub-states state)]
+                (actions a b s-a s-b)))))]
 
     (prune
       (dfa
@@ -767,7 +780,7 @@
                inputs (->> [(input->actions a s-a)
                             (input->actions b s-b)]
                         (map keys)
-                        (apply clojure.core/concat)
+                        (apply clj/concat)
                         distinct)]
            (zipmap*
              inputs
@@ -798,3 +811,13 @@
            (input->actions b s-b)))))
   ([a b & rest]
      (apply difference (difference a b) rest)))
+
+#+clj ; cljs.compiler tries to emit metadata on precompiled automata and chokes on IAutomaton
+(do
+  (defmacro ^:private cljs-emit-constant []
+    (when (try
+            (-> 'cljs.compiler require nil?)
+            (catch Exception _))
+      `(defmethod cljs.compiler/emit-constant ~IAutomaton [x#]
+         (cljs.compiler/emit-constant nil))))
+  (cljs-emit-constant))

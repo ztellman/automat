@@ -1,4 +1,5 @@
 (ns automat.stream
+  #+clj
   (:import
     [java.nio
      Buffer
@@ -15,12 +16,13 @@
      Wrappers$LongBufferWrapper
      InputStream]))
 
-(def ^:const byte-array-class (class (byte-array 0)))
-(def ^:const short-array-class (class (short-array 0)))
-(def ^:const int-array-class (class (int-array 0)))
-(def ^:const long-array-class (class (long-array 0)))
+#+clj (def ^:const byte-array-class (class (byte-array 0)))
+#+clj (def ^:const short-array-class (class (short-array 0)))
+#+clj (def ^:const int-array-class (class (int-array 0)))
+#+clj (def ^:const long-array-class (class (long-array 0)))
 
-(defn to-stream [x]
+#+clj
+(defn ^InputStream to-stream [x]
   (condp instance? x
 
     InputStream
@@ -61,7 +63,8 @@
                 eof
                 (let [x (first s')]
                   (swap! s rest)
-                  (if (char? x)
+                  x
+                  #_ (if (char? x)
                     (int x)
                     x)))))
           (nextNumericInput [_ eof]
@@ -70,6 +73,29 @@
                 eof
                 (let [x (first s')]
                   (swap! s rest)
-                  (if (char? x)
+                  x
+                  #_ (if (char? x)
                     (int x)
                     x))))))))))
+
+#+cljs
+(defprotocol InputStream
+  (nextInput [_ eof]))
+
+#+cljs
+(defn to-stream [x]
+  (if (satisfies? InputStream x)
+    x
+    (let [s (volatile! (seq x))]
+      (reify InputStream
+        (nextInput
+         [_ eof]
+         (let [s' @s]
+           (if (empty? s')
+             eof
+             (let [x (first s')]
+               (vswap! s rest)
+               x))))))))
+
+(defn next-input [^InputStream stream eof]
+  (#+clj .nextInput #+cljs nextInput stream eof))

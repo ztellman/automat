@@ -1,34 +1,34 @@
 (ns automat.compiler.base
   (:refer-clojure :exclude [compile])
   (:require
-    [automat.compiler.core :as core]
-    [automat.fsm :as fsm]
-    [automat.stream :as stream])
+   [automat.compiler.core :as core :refer [#+cljs ICompiledAutomaton
+                                           #+cljs CompiledAutomatonState]]
+   [automat.fsm :as fsm]
+   [automat.stream :as stream])
+  #+clj
   (:import
-    [automat.compiler.core
-     ICompiledAutomaton
-     CompiledAutomatonState]
-    [automat.fsm
-     IAutomaton]))
+   [automat.compiler.core
+    ICompiledAutomaton
+    CompiledAutomatonState]))
 
-(defn advance [fsm state stream signal reducers restart?]
-  (let [signal #(if (identical? % ::eof) % (signal %))
+(defn- advance [fsm state stream signal reducers restart?]
+  (let [signal #(if (#+clj identical? #+cljs keyword-identical? % ::eof) % (signal %))
         ^CompiledAutomatonState original-state state
-        ^automat.utils.InputStream stream (stream/to-stream stream)
-        original-stream-index (.stream-index original-state)]
-    (loop [original-input (.nextInput stream ::eof)
-           value (.value original-state)
-           state (.state-index original-state)
-           start-index (.start-index original-state)
+        stream (stream/to-stream stream)
+        original-stream-index (.-stream-index original-state)]
+    (loop [original-input (stream/next-input stream ::eof)
+           value (.-value original-state)
+           state (.-state-index original-state)
+           start-index (.-start-index original-state)
            stream-index original-stream-index]
 
       (let [input (signal original-input)]
-        (if (identical? ::eof input)
+        (if (#+clj identical? #+cljs keyword-identical? ::eof input)
 
           (if (== original-stream-index stream-index)
             original-state
             (CompiledAutomatonState.
-              (boolean (contains? (:accept fsm) state))
+              (contains? (:accept fsm) state)
               nil
               state
               start-index
@@ -55,11 +55,11 @@
                                 stream-index)]
 
             (cond
-              (or (nil? state') (identical? fsm/reject state'))
+              (or (nil? state') (#+clj identical? #+cljs keyword-identical? fsm/reject state'))
               (if restart?
                 (recur
                   (if (= state 0)
-                    (signal (.nextInput stream ::eof))
+                    (signal (stream/next-input stream ::eof))
                     input)
                   value'
                   0
@@ -78,22 +78,18 @@
 
               :else
               (recur
-                (.nextInput stream ::eof)
+                (stream/next-input stream ::eof)
                 value'
                 (long state')
                 start-index
                 (inc stream-index)))))))))
 
 (defn compile
-  [fsm
-   {:keys [reducers signal action-comparator]
-    :or {signal identity}}]
-  (let [base-fsm fsm
-        fsm (core/precompile fsm action-comparator)
-        initially-accepted? (contains? (:accept fsm) 0)]
-
+  [fsm {:keys [reducers signal action-comparator]
+        :or {signal identity}}]
+  {:pre [(core/precompiled-automaton? fsm)]}
+  (let [initially-accepted? (contains? (:accept fsm) 0)]
     (with-meta
-
       (reify ICompiledAutomaton
         (start [_ initial-value]
           (CompiledAutomatonState.
@@ -105,13 +101,13 @@
             initial-value))
         (find [this state stream]
           (let [state (core/->automaton-state this state)]
-            (if (.accepted? ^CompiledAutomatonState state)
+            (if (.-accepted? ^CompiledAutomatonState state)
               state
               (advance fsm state stream signal reducers true))))
         (advance-stream [this state stream reject-value]
           (let [state (core/->automaton-state this state)
                 state' (advance fsm state stream signal reducers false)]
-            (if (identical? ::reject state')
+            (if (#+clj identical? #+cljs keyword-identical? ::reject state')
               reject-value
               state'))))
-      {:fsm base-fsm})))
+      {:fsm (-> fsm meta :fsm)})))

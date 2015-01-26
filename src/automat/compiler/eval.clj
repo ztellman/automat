@@ -12,8 +12,7 @@
      CompiledAutomatonState]))
 
 (defn- inputs-predicate [numeric? input to-match]
-  (let [to-match (map core/normalize-input to-match)
-        non-numbers (remove number? to-match)
+  (let [non-numbers (remove number? to-match)
         ranges (fsm/input-ranges (filter number? to-match))]
     `(or
        ~@(map
@@ -45,7 +44,7 @@
         states (core/states fsm)
         numeric? (and
                    (not (empty? alphabet))
-                   (->> alphabet (map core/normalize-input) (every? number?)))
+                   (every? number? alphabet))
         eof-value (if numeric? Integer/MIN_VALUE ::eof)
         next-input `(~(if numeric? '.nextNumericInput '.nextInput)
                      ~input-stream
@@ -165,67 +164,64 @@
 
 (defn compile
   [fsm {:keys [reducers signal action-comparator]}]
-  (if (instance? ICompiledAutomaton fsm)
-    fsm
-    (let [base-fsm fsm
-          fsm (core/precompile fsm action-comparator)
-          action->sym (zipmap
-                        (->> fsm
+  {:pre [(core/precompiled-automaton? fsm)]}
+  (let [action->sym (zipmap
+                     (->> fsm
                           :state->input->actions
                           vals
                           (mapcat vals)
                           (apply concat)
                           distinct)
-                        (repeatedly #(gensym "f")))
-          action->fn (->> action->sym
-                       keys
-                       (map #(when-let [f (and reducers (reducers %))]
-                               [% f]))
-                       (remove nil?)
-                       (into {}))
-          action->sym (select-keys action->sym (keys action->fn))]
-      (with-meta
-        (binding [*fns* action->fn
-                  *signal* signal]
-          (eval
-            (unify-gensyms
-              `(let [~@(mapcat
-                         (fn [[action sym]]
-                           [sym `(*fns* ~action)])
-                         action->sym)
-                     signal## @#'*signal*]
-                 (reify automat.compiler.core.ICompiledAutomaton
-                   (start [_# initial-value#]
-                     (automat.compiler.core.CompiledAutomatonState.
+                     (repeatedly #(gensym "f")))
+        action->fn (->> action->sym
+                        keys
+                        (map #(when-let [f (and reducers (reducers %))]
+                                [% f]))
+                        (remove nil?)
+                        (into {}))
+        action->sym (select-keys action->sym (keys action->fn))]
+    (with-meta
+      (binding [*fns* action->fn
+                *signal* signal]
+        (eval
+         (unify-gensyms
+          `(let [~@(mapcat
+                    (fn [[action sym]]
+                      [sym `(*fns* ~action)])
+                    action->sym)
+                 signal## @#'*signal*]
+             (reify automat.compiler.core.ICompiledAutomaton
+               (start [_# initial-value#]
+                      (automat.compiler.core.CompiledAutomatonState.
                        ~(contains? (:accept fsm) 0)
                        nil
                        0
                        0
                        0
                        initial-value#))
-                   (find [this# state## stream##]
+               (find [this# state## stream##]
                      (let [state## (core/->automaton-state this# state##)
                            stream## (automat.stream/to-stream stream##)]
                        (if (.accepted? ^automat.compiler.core.CompiledAutomatonState state##)
                          state##
                          ~(consume-form
-                            (with-meta `state## {:tag "automat.compiler.core.CompiledAutomatonState"})
-                            (with-meta `stream## {:tag "automat.utils.InputStream"})
-                            fsm
-                            (fn [next-input]
-                              `(if (p/== 0 state-index##)
-                                 (recur 0 stream-index## stream-index## ~next-input)
-                                 (recur 0 (p/dec stream-index##) (p/dec stream-index##) input##)))
-                            (when signal `signal##)
-                            action->sym))))
-                   (advance-stream [this# state## stream## reject-value##]
-                     (let [state## (core/->automaton-state this# state##)
-                           stream## (automat.stream/to-stream stream##)]
-                       ~(consume-form
-                          (with-meta `state## {:tag "automat.compiler.core.CompiledAutomatonState"})
-                          (with-meta `stream## {:tag "automat.utils.InputStream"})
-                          fsm
-                          (fn [_] `reject-value##)
-                          (when signal `signal##)
-                          action->sym))))))))
-        {:fsm base-fsm}))))
+                           (with-meta `state## {:tag "automat.compiler.core.CompiledAutomatonState"})
+                           (with-meta `stream## {:tag "automat.utils.InputStream"})
+                           fsm
+                           (fn [next-input]
+                             `(if (p/== 0 state-index##)
+                                (recur 0 stream-index## stream-index## ~next-input)
+                                (recur 0 (p/dec stream-index##) (p/dec stream-index##) input##)))
+                           (when signal `signal##)
+                           action->sym))))
+               (advance-stream [this# state## stream## reject-value##]
+                               (let [state## (core/->automaton-state this# state##)
+                                     stream## (automat.stream/to-stream stream##)]
+                                 ~(consume-form
+                                   (with-meta `state## {:tag "automat.compiler.core.CompiledAutomatonState"})
+                                   (with-meta `stream## {:tag "automat.utils.InputStream"})
+                                   fsm
+                                   (fn [_] `reject-value##)
+                                   (when signal `signal##)
+                                   action->sym))))))))
+      {:fsm (-> fsm meta :fsm)})))
