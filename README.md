@@ -1,6 +1,6 @@
 ![](docs/automat.JPG)
 
-Automat is a library for defining and using finite-state automata, inspired by [Ragel](http://www.complang.org/ragel/).  However, instead of defining a DSL, it allows them to be built using simple composition of functions.
+Automat is a Clojure and ClojureScript library for defining and using finite-state automata, inspired by [Ragel](http://www.complang.org/ragel/).  However, instead of defining a DSL, it allows them to be built using simple composition of functions.
 
 These automata, once compiled, are quite fast.  An array with 100 million elements can be processed in 500ms, giving a mean transition time of 5ns.  However, Automat isn't just for high throughput use cases; it's meant to be useful wherever an FSM is necessary.
 
@@ -319,6 +319,40 @@ When using `$` for accumulation tasks with `find` or `greedy-find`, it can be te
 ```
 
 Using `$` can be a powerful tool, but it will have a performance impact - for high throughput use cases prefer using the `:start-index` and `:stream-index` values to pull out the input data in bulk.
+
+### using in ClojureScript
+
+Automat in ClojureScript works just as it does in Clojure except that there is no ClojureScript version of `automat.viz`.
+
+Compiling FSMs can be slow if they have many states. While rarely a concern for JVM applications, quick startup time is often crucial for client-side JavaScript applications. If you find that compiling your ClojureScript FSMs is too slow, consider defining and precompiling them in Clojure:
+
+```clj
+(ns clj.namespace
+  (:require
+   [automat.core :as a]))
+
+(defmacro get-fsm []
+  (->> [:foo :bar :baz]
+       (a/interpose-$ :conj)
+       a/precompile))
+```
+
+```cljs
+(ns cljs.namespace
+  (:require
+   [automat.core :as a])
+  (:require-macros
+   [clj.namespace :refer [get-fsm]]))
+
+(def fsm
+  (a/compile (get-fsm) {:reducers {:conj conj}}))
+
+(defn fsm-find [input]
+  (a/find fsm nil input))
+
+(fsm-find [:foo :bar :baz])
+;=> {:accepted? true, :checkpoint nil, :state-index 3, :start-index 0, :stream-index 3, :value (:baz :bar :foo)}
+```
 
 ### license
 
