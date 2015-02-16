@@ -2,6 +2,6 @@ language: clojure
 lein: lein2
 script: lein2 clean-build && lein2 test && lein2 cljsbuild test
 jdk:
-  - openjdk7
+  - oraclejdk8
   - oraclejdk7
-  - openjdk6
+  - openjdk7
