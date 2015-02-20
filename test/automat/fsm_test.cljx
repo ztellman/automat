@@ -1,7 +1,11 @@
 (ns automat.fsm-test
   (:require
-    [clojure.test :refer :all]
-    [automat.fsm :as a]))
+   [automat.fsm :as a]
+   #+clj [clojure.test :refer :all]
+   #+cljs [cemerick.cljs.test])
+  #+cljs
+  (:require-macros
+   [cemerick.cljs.test :refer [deftest is are]]))
 
 (defn accepts-seq? [fsm sequence]
   (let [fsm (a/->dfa fsm)]

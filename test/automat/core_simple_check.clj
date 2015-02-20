@@ -3,6 +3,7 @@
     [clojure.test :refer :all]
     [clojure.set :as set]
     [automat.core :as a]
+    [automat.compiler.core :as compiler]
     [automat.fsm :as fsm]
     [clojure.test.check.generators :as gen]
     [clojure.test.check.properties :as prop]
@@ -51,8 +52,8 @@
      inputs (gen/list (gen/list (gen/elements [:a :b])))]
     (fsm/reset-generations)
     (pr '.) (flush)
-    (let [fsm-a (a/parse-automata (construct-automaton actions-a))
-          fsm-b (a/parse-automata (construct-automaton actions-b))
+    (let [fsm-a (compiler/parse-automata (construct-automaton actions-a))
+          fsm-b (compiler/parse-automata (construct-automaton actions-b))
           fsm-a' (a/compile fsm-a)
           fsm-b' (a/compile fsm-b)
           a-inputs (set (filter #(accepts? fsm-a' %) inputs))
