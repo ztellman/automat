@@ -5,7 +5,10 @@
     [potemkin.types])
   (:require
     [primitive-math :as p]
-    [clojure.set :as set]))
+    [clojure.set :as set])
+  (:import
+    [java.util
+     LinkedList]))
 
 ;;;
 
@@ -798,3 +801,26 @@
            (input->actions b s-b)))))
   ([a b & rest]
      (apply difference (difference a b) rest)))
+
+;;;
+
+(defn matching-inputs
+  "Returns a lazy sequence of input sequences which the automaton will match."
+  [fsm]
+  (let [fsm (-> fsm ->dfa final-minimize)
+        accept? (set (accept fsm))
+        q (doto (LinkedList.)
+            (.add [(start fsm) []]))]
+    (take-while
+      #(not (identical? ::none %))
+      (repeatedly
+        (fn []
+          (loop []
+            (if-let [[state path] (.poll q)]
+              (do
+                (doseq [[i s] (input->state fsm state)]
+                  (.add q [s (conj path i)]))
+                (if (accept? state)
+                  path
+                  (recur)))
+              ::none)))))))

@@ -83,6 +83,11 @@
 
 ;;;
 
+(defn matching-inputs
+  "Returns a lazy sequence of input sequences which the automaton will match."
+  [fsm]
+  (fsm/matching-inputs (parse-automata fsm)))
+
 (defn greedy-find
   "Greedily find the largest possible accepted sub-sequence.  Will only return an `accepted?` state once subsequent
    inputs have been rejected.  Since this always consumes more inputs than the accepted sub-sequence, be careful when
