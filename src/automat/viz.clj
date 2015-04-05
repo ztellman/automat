@@ -4,8 +4,7 @@
     [clojure.set :as set]
     [automat.core :as c]
     [automat.fsm :as a]
-    [rhizome.dot :as r]
-    [rhizome.viz :as v])
+    [rhizome.dot :as r])
   (:import
     [automat.compiler.core
      ICompiledAutomaton]))
@@ -95,6 +94,7 @@
   ([fsm]
      (view fsm {:dpi 100}))
   ([fsm options]
+     (require '[rhizome.viz :as v])
      (-> fsm
        (fsm->dot options)
        v/dot->image
@@ -105,6 +105,7 @@
   ([fsm filename]
      (save fsm filename nil))
   ([fsm filename options]
+     (require '[rhizome.viz :as v])
      (-> fsm
        (fsm->dot options)
        v/dot->image
