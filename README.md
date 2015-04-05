@@ -1,6 +1,6 @@
 ![](docs/automat.JPG)
 
-Automat is a library for defining and using finite-state automata, inspired by [Ragel](http://www.complang.org/ragel/).  However, instead of defining a DSL, it allows them to be built using simple composition of functions.
+Automat is a Clojure and ClojureScript library for defining and using finite-state automata, inspired by [Ragel](http://www.complang.org/ragel/).  However, instead of defining a DSL, it allows them to be built using simple composition of functions.
 
 These automata, once compiled, are quite fast.  An array with 100 million elements can be processed in 500ms, giving a mean transition time of 5ns.  However, Automat isn't just for high throughput use cases; it's meant to be useful wherever an FSM is necessary.
 
@@ -60,10 +60,10 @@ We can also combine existing automatons using the operators in `automat.core`:
 
 This represents the **union** of the two automata, and returns an automaton which will either accept `1, 2, 3` or `1, 3`.
 
-If we want to accept a range of inputs, we can use `..`:
+If we want to accept a range of inputs, we can use `range`:
 
 ```clj
-> (view [1 (a/.. 2 10) 11])
+> (view [1 (a/range 2 10) 11])
 ```
 
 ![](docs/readme-3.png)
@@ -73,8 +73,8 @@ This will accept `1, 2, 11`, `1, 3, 11`, and so on.  If we subsequently want to 
 ```clj
 > (view
     (a/and
-      [1 (a/.. 2 7) 11]
-      [1 (a/.. 6 12) 11]))
+      [1 (a/range 2 7) 11]
+      [1 (a/range 6 12) 11]))
 ```
 
 ![](docs/readme-4.png)
@@ -82,7 +82,7 @@ This will accept `1, 2, 11`, `1, 3, 11`, and so on.  If we subsequently want to 
 This represents the **intersection** of two automata, in this case giving us an automaton that either accepts `1, 6, 11` or `1, 7, 11`.  Note that if the intersection is empty, this will give us an automaton that cannot accept anything.
 
 ```clj
-> (view (a/difference (a/.. 1 10) 2 (a/.. 5 6)))
+> (view (a/difference (a/range 1 10) 2 (a/range 5 6)))
 ```
 
 ![](docs/readme-7.png)
@@ -319,6 +319,40 @@ When using `$` for accumulation tasks with `find` or `greedy-find`, it can be te
 ```
 
 Using `$` can be a powerful tool, but it will have a performance impact - for high throughput use cases prefer using the `:start-index` and `:stream-index` values to pull out the input data in bulk.
+
+### using in ClojureScript
+
+Automat in ClojureScript works just as it does in Clojure except that there is no ClojureScript version of `automat.viz`.
+
+Compiling FSMs can be slow if they have many states. While rarely a concern for JVM applications, quick startup time is often crucial for client-side JavaScript applications. If you find that compiling your ClojureScript FSMs is too slow, consider defining and precompiling them in Clojure:
+
+```clj
+(ns clj.namespace
+  (:require
+   [automat.core :as a]))
+
+(defmacro get-fsm []
+  (->> [:foo :bar :baz]
+       (a/interpose-$ :conj)
+       a/precompile))
+```
+
+```cljs
+(ns cljs.namespace
+  (:require
+   [automat.core :as a])
+  (:require-macros
+   [clj.namespace :refer [get-fsm]]))
+
+(def fsm
+  (a/compile (get-fsm) {:reducers {:conj conj}}))
+
+(defn fsm-find [input]
+  (a/find fsm nil input))
+
+(fsm-find [:foo :bar :baz])
+;=> {:accepted? true, :checkpoint nil, :state-index 3, :start-index 0, :stream-index 3, :value (:baz :bar :foo)}
+```
 
 ### license
 
