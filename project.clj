@@ -14,13 +14,12 @@
                    :prep-tasks [["cljx" "once"] "javac" "compile"]
                    :auto-clean false
                    :aliases {"clean-test" ["do" "clean," "cljx" "once," "test," "cljsbuild" "test"]
-                             "clean-build" ["do" "clean," "cljx" "once," "cljsbuild" "once"]
-                             "deploy" ["do" "clean," "cljx" "once," "deploy" "clojars"]}}}
+                             "clean-build" ["do" "clean," "cljx" "once," "cljsbuild" "once"]}}}
   :test-selectors {:default #(every? (complement #{:stress :benchmark}) (keys %))
                    :stress :stress
                    :benchmark :benchmark}
   :global-vars {*warn-on-reflection* true}
-  :jvm-opts ^:replace ["-server" "-Xmx2g"]
+  :jvm-opts ^:replace ["-server" "-Xmx2g" "-Djava.awt.headless=true"]
   :java-source-paths ["src"]
   :javac-options ["-target" "1.5" "-source" "1.5"]
   :jar-exclusions [#"\.cljx|\.DS_Store"]
