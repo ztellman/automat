@@ -4,14 +4,10 @@
   (:use
    [potemkin.types])
   (:require
-    [primitive-math :as p]
     [clojure.set :as set]
     #+clj [clojure.core :as clj]
     #+cljs [cljs.core :as clj :include-macros true]
-    #+clj [primitive-math :as p])
-  (:import
-    [java.util
-     LinkedList]))
+    #+clj [primitive-math :as p]))
 
 (def ^:const epsilon "An input representing no input." ::epsilon)
 (def ^:const default "An input representing a default" ::default)
@@ -823,17 +819,17 @@
   [fsm]
   (let [fsm (-> fsm ->dfa final-minimize)
         accept? (set (accept fsm))
-        q (doto (LinkedList.)
-            (.add [(start fsm) []]))]
+        q (atom [[(start fsm) []]])]
     (take-while
       #(not (identical? ::none %))
       (repeatedly
         (fn []
           (loop []
-            (if-let [[state path] (.poll q)]
+            (if-let [[state path] (peek @q)]
               (do
+                (swap! q pop)
                 (doseq [[i s] (input->state fsm state)]
-                  (.add q [s (conj path i)]))
+                  (swap! q conj [s (conj path i)]))
                 (if (accept? state)
                   path
                   (recur)))
