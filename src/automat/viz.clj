@@ -95,10 +95,12 @@
      (view fsm {:dpi 100}))
   ([fsm options]
      (require 'rhizome.viz)
-     (-> fsm
-       (fsm->dot options)
-       rhizome.viz/dot->image
-       rhizome.viz/view-image)))
+     (let [dot->image (resolve 'rhizome.viz/dot->image)
+           view-image (resolve 'rhizome.viz/view-image)]
+       (-> fsm
+         (fsm->dot options)
+         dot->image
+         view-image))))
 
 (defn save
   "Renders the states and transitions of `fsm`, and saves them to `filename`."
@@ -106,7 +108,9 @@
      (save fsm filename nil))
   ([fsm filename options]
      (require 'rhizome.viz)
-     (-> fsm
-       (fsm->dot options)
-       rhizome.viz/dot->image
-       (rhizome.viz/save-image filename))))
+     (let [dot->image (resolve 'rhizome.viz/dot->image)
+           save-image (resolve 'rhizome.viz/save-image)]
+       (-> fsm
+         (fsm->dot options)
+         dot->image
+         (save-image filename)))))

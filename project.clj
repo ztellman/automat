@@ -19,7 +19,7 @@
                    :stress :stress
                    :benchmark :benchmark}
   :global-vars {*warn-on-reflection* true}
-  :jvm-opts ^:replace ["-server" "-Xmx2g" "-Djava.awt.headless=true"]
+  :jvm-opts ^:replace ["-server" "-Xmx2g"]
   :java-source-paths ["src"]
   :javac-options ["-target" "1.5" "-source" "1.5"]
   :jar-exclusions [#"\.cljx|\.DS_Store"]
