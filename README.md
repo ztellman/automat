@@ -184,14 +184,14 @@ We can define reduction operations within our FSM using the `$` function:
 ```clj
 > (def f (a/compile
            [1 2 3 (a/$ :complete)]
-           {:reducers {:complete (fn [state input] :complete)}})))
+           {:reducers {:complete (fn [state input] :completed)}})))
 #'f
 > (view f)
 ```
 
 ![](docs/readme-9.png)
 
-As shown here, the `:complete` action is something that's associated with the previous input, in this case `3`.  Then, when calling `compile`, we associate a reduce function with that action, which takes the current reduce `:value` and the latest input.  In this case, it simply returns :complete when it gets the sequence `[1 2 3]`.
+As shown here, the `:complete` action is something that's associated with the previous input, in this case `3`.  Then, when calling `compile`, we associate a reduce function with that action, which takes the current reduce `:value` and the latest input.  In this case, it simply returns `:completed` when it gets the sequence `[1 2 3]`.
 
 ```clj
 > (def adv (partial a/advance f))
@@ -199,7 +199,7 @@ As shown here, the `:complete` action is something that's associated with the pr
 > (-> :incomplete (adv 1) (adv 2) :value)
 :incomplete
 > (-> :incomplete (adv 1) (adv 2) (adv 3) :value)
-:complete
+:completed
 ```
 
 While this is a fairly trivial application, there are a wide variety of ways this can be used.  For instance, this means that unlike a normal automaton, we can tell whether a list of parentheses are balanced, by tracking the number of un-closed parens in our `:value`.
