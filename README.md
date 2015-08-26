@@ -60,10 +60,10 @@ We can also combine existing automatons using the operators in `automat.core`:
 
 This represents the **union** of the two automata, and returns an automaton which will either accept `1, 2, 3` or `1, 3`.
 
-If we want to accept a range of inputs, we can use `range`:
+If we want to accept a range of inputs, we can use `..`:
 
 ```clj
-> (view [1 (a/range 2 10) 11])
+> (view [1 (a/.. 2 10) 11])
 ```
 
 ![](docs/readme-3.png)
@@ -73,8 +73,8 @@ This will accept `1, 2, 11`, `1, 3, 11`, and so on.  If we subsequently want to 
 ```clj
 > (view
     (a/and
-      [1 (a/range 2 7) 11]
-      [1 (a/range 6 12) 11]))
+      [1 (a/.. 2 7) 11]
+      [1 (a/.. 6 12) 11]))
 ```
 
 ![](docs/readme-4.png)
@@ -82,7 +82,7 @@ This will accept `1, 2, 11`, `1, 3, 11`, and so on.  If we subsequently want to 
 This represents the **intersection** of two automata, in this case giving us an automaton that either accepts `1, 6, 11` or `1, 7, 11`.  Note that if the intersection is empty, this will give us an automaton that cannot accept anything.
 
 ```clj
-> (view (a/difference (a/range 1 10) 2 (a/range 5 6)))
+> (view (a/difference (a/.. 1 10) 2 (a/... 5 6)))
 ```
 
 ![](docs/readme-7.png)
