@@ -6,8 +6,7 @@
                  [primitive-math "0.1.4"]
                  [potemkin "0.4.3"]
                  [proteus "0.1.6"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0"]
-                                  ;[org.clojure/clojurescript "0.0-2727"]
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
                                   [org.clojure/clojurescript "1.7.228"]
 
                                   [org.clojure/test.check "0.9.0"]
@@ -30,9 +29,7 @@
   :plugins [[codox "0.9.3"]
             [com.cemerick/clojurescript.test "0.3.3"]
             [com.keminglabs/cljx "0.5.0"]
-            ;[lein-cljsbuild "1.0.4"]
-            [lein-cljsbuild "1.1.2"]
-            ]
+            [lein-cljsbuild "1.1.2"]]
   :cljx {:builds [{:source-paths ["src"]
                    :output-path "target/src"
                    :rules :clj}
