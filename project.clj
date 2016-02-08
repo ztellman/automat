@@ -6,7 +6,7 @@
                  [primitive-math "0.1.4"]
                  [potemkin "0.3.9"]
                  [proteus "0.1.4"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.6.0"]
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0"]
                                   [org.clojure/clojurescript "0.0-2727"]
                                   [org.clojure/test.check "0.5.9"]
                                   [criterium "0.4.3"]
