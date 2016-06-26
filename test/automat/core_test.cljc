@@ -1,13 +1,12 @@
 (ns automat.core-test
   (:require
-   [automat.core :as a ]
-   [automat.fsm :as fsm]
-   #+clj [clojure.test :refer :all]
-   #+cljs [cemerick.cljs.test]
-   #+clj [criterium.core :as c])
-  #+cljs
-  (:require-macros
-   [cemerick.cljs.test :refer [deftest testing is are]]))
+    [automat.core :as a ]
+    [automat.fsm :as fsm]
+    #?(:clj [clojure.test :refer :all]
+       :cljs [cemerick.cljs.test])
+    #?(:clj [criterium.core :as c]))
+  #?(:cljs (:require-macros
+             [cemerick.cljs.test :refer [deftest testing is are]])))
 
 (defn accepts? [f fsm start-index stream-index s]
   (let [state (f fsm nil s)]
@@ -16,7 +15,7 @@
       (= start-index (:start-index state))
       (= stream-index (:stream-index state)))))
 
-(def backends [:base #+clj :eval])
+(def backends [:base #?(:clj :eval)])
 
 (deftest test-find
   (doseq [backend backends]
@@ -142,18 +141,16 @@
 
 ;;;
 
-#+clj
-(defn- cycle-array [n s]
-  (let [cnt (count s)
-        ^bytes ary (byte-array n)]
-    (dotimes [idx n]
-      (aset ary idx (byte (nth s (rem idx cnt)))))
-    ary))
+#?(:clj (defn- cycle-array [n s]
+          (let [cnt (count s)
+                ^bytes ary (byte-array n)]
+            (dotimes [idx n]
+              (aset ary idx (byte (nth s (rem idx cnt)))))
+            ary)))
 
-#+clj
-(deftest ^:benchmark benchmark-find
-  (let [ary (cycle-array 1e8 [1 2 3])
-        fsm (a/compile [1 2 3 4])]
-    (println "find within a 100mb buffer")
-    (c/quick-bench
-      (a/find fsm nil ary))))
+#?(:clj (deftest ^:benchmark benchmark-find
+          (let [ary (cycle-array 1e8 [1 2 3])
+                fsm (a/compile [1 2 3 4])]
+            (println "find within a 100mb buffer")
+            (c/quick-bench
+              (a/find fsm nil ary)))))

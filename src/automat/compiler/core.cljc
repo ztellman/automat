@@ -1,23 +1,20 @@
 (ns automat.compiler.core
   (:refer-clojure :exclude [find])
   (:require
-   [automat.fsm :as fsm :refer [#+cljs IAutomaton]]
-   #+clj [potemkin :refer :all])
-  #+clj
-  (:import
-   [automat.fsm
-    IAutomaton]))
+    [automat.fsm :as fsm :refer [#?(:cljs IAutomaton)]]
+    #?(:clj [potemkin :refer :all]))
+  #?(:clj (:import [automat.fsm IAutomaton])))
 
-(#+clj definterface+ #+cljs defprotocol ICompiledAutomaton
+(#?(:clj definterface+ :cljs defprotocol) ICompiledAutomaton
   (start [_ initial-value]
     "Returns a start state for the automaton, with the reduction value set to `initial-value`.")
   (find [_ state stream])
   (advance-stream [_ state stream reject-value]))
 
 (defn compiled-automaton? [x]
-  (#+clj instance? #+cljs satisfies? ICompiledAutomaton x))
+  (#?(:clj instance? :cljs satisfies?) ICompiledAutomaton x))
 
-(#+clj defrecord+ #+cljs defrecord CompiledAutomatonState
+(#?(:clj defrecord+ :cljs defrecord) CompiledAutomatonState
   [^boolean accepted?
    checkpoint
    ^long state-index
