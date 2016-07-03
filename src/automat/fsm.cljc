@@ -810,12 +810,16 @@
 
 ;;;
 
+(defn- queue []
+  #+clj clojure.lang.PersistentQueue/EMPTY
+  #+cljs cljs.core/PersistentQueue.EMPTY)
+
 (defn matching-inputs
   "Returns a lazy sequence of input sequences which the automaton will match."
   [fsm]
   (let [fsm (-> fsm ->dfa final-minimize)
         accept? (set (accept fsm))
-        q (atom [[(start fsm) []]])]
+        q (atom (conj (queue) [(start fsm) []]))]
     (take-while
       #(not (identical? ::none %))
       (repeatedly
