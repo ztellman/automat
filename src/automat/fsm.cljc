@@ -811,8 +811,8 @@
 ;;;
 
 (defn- queue []
-  #+clj clojure.lang.PersistentQueue/EMPTY
-  #+cljs cljs.core/PersistentQueue.EMPTY)
+  #?(:clj clojure.lang.PersistentQueue/EMPTY
+     :cljs cljs.core/PersistentQueue.EMPTY))
 
 (defn matching-inputs
   "Returns a lazy sequence of input sequences which the automaton will match."

@@ -3,14 +3,13 @@
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[rhizome "0.2.5"]
-                 [primitive-math "0.1.4"]
+                 [primitive-math "0.1.5"]
                  [potemkin "0.4.3"]
                  [proteus "0.1.6"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
-                                  [org.clojure/clojurescript "1.7.228"]
-
+                                  [org.clojure/clojurescript "1.9.93"]
                                   [org.clojure/test.check "0.9.0"]
-                                  [criterium "0.4.3"]
+                                  [criterium "0.4.4"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]
                    ;:prep-tasks ["compile" "javac"]
                    :auto-clean false
