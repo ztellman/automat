@@ -8,7 +8,7 @@ These automata, once compiled, are quite fast.  An array with 100 million elemen
 [automat "0.1.3"]
 ```
 
-Full documentation can be found [here](http://ideolalia.com/automat/automat.core.html).
+Full documentation can be found [here](http://aleph.io/codox/automat/).
 
 ### defining an FSM
 

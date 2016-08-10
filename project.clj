@@ -9,8 +9,7 @@
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
                                   [org.clojure/clojurescript "1.9.93"]
                                   [org.clojure/test.check "0.9.0"]
-                                  [criterium "0.4.4"]
-                                  [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]
+                                  [criterium "0.4.4"]]
                    ;:prep-tasks ["compile" "javac"]
                    :auto-clean false
                    :aliases {"clean-test" ["do" "clean," "javac," "compile," "test," "cljsbuild" "test"]
@@ -25,7 +24,7 @@
   :jar-exclusions [#"\.DS_Store"]
   :source-paths ["src" "target/src" "target/classes"]
   :test-paths ["test" "target/test"]
-  :plugins [[codox "0.9.3"]
+  :plugins [[lein-codox "0.9.4"]
             [com.cemerick/clojurescript.test "0.3.3"]
             [lein-cljsbuild "1.1.2"]]
   :cljsbuild {:builds [{:source-paths ["src" "test"]
@@ -34,5 +33,6 @@
                                    :output-dir "target/js"
                                    :optimizations :advanced}}]
               :test-commands {"phantom" ["phantomjs" :runner "target/test.js"]}}
-  :codox {:writer codox-md.writer/write-docs
-          :include [automat.core automat.viz]})
+  :codox {:source-uri "https://github.com/ztellman/automat/blob/master/{filepath}#L{line}"
+          :metadata {:doc/format :markdown}
+          :namespaces [automat.core automat.viz]})
