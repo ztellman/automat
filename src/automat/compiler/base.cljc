@@ -60,7 +60,7 @@
               (if restart?
                 (recur
                   (if (= state 0)
-                    (signal (stream/next-input stream ::eof))
+                    (stream/next-input stream ::eof)
                     original-input)
                   value'
                   0
