@@ -184,7 +184,7 @@ We can define reduction operations within our FSM using the `$` function:
 ```clj
 > (def f (a/compile
            [1 2 3 (a/$ :complete)]
-           {:reducers {:complete (fn [state input] :completed)}})))
+           {:reducers {:complete (fn [state input] :completed)}}))
 #'f
 > (view f)
 ```
