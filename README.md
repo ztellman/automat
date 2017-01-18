@@ -283,6 +283,29 @@ It's also easy to extend.  Let's say that we want to save any `:product` pages t
 
 As our desired behavior gets more complicated, they can still be defined as small, composable pieces of behavior.
 
+Using this FSM would be indeed pretty straightforward :
+
+```clj
+> (def adv (partial a/advance f))
+> (-> nil
+      (adv {:page-type :cart})
+      (adv {:page-type :product})
+      (adv {:page-type :product})
+      (adv {:page-type :product})
+      (adv :anything)
+      (adv {:page-type :checkout})
+      (adv {:page-type :product})
+      (adv {:page-type :cart}) :value)
+{:offer-pages [{:page-type :cart}
+               {:page-type :product}
+               {:page-type :product}
+               {:page-type :product}
+               {:page-type :checkout}
+               {:page-type :product}
+               {:page-type :cart}],
+ :offer? true}
+```
+
 ### searching over streams
 
 `find` works similarly to regex matching.  It takes the stream of inputs, which can be a byte-array, `java.nio.Buffer`, `java.io.InputStream`, `java.io.Reader`, or a normal Clojure sequence. The inputs in the FSM correspond to elements from these streams, which will be consumed until an accept state is reached, or the end of the stream is reached.  In either case, `find` will return a new state.
