@@ -421,18 +421,26 @@
 
 ;; union-find, basically
 (defn- merge-pairs [pairs]
-  (let [m (reduce
-            (fn [m [a b]]
-              (let [x (get m a (get m b a))]
-                (assoc m a x b x)))
-            {}
-            pairs)
-        root (fn root [x]
-               (let [x' (get m x)]
-                 (if (= x x')
-                   x
-                   (recur x'))))]
-    (zipmap* (keys m) root)))
+  (let [grouped (group-by (partial apply =) pairs)
+        pairs-dif (get grouped false)
+        pairs-eq  (get grouped true)
+
+        m (reduce (fn [m [a b]]
+                    (if (contains? m a)
+                      (assoc m b a)
+                      (if (contains? m b)
+                        (assoc m a b)
+                        (assoc m a a b a))))
+                  {}
+                  pairs-dif)
+
+        m (reduce (fn [m [a _]]
+                    (if (contains? m a)
+                      m
+                      (assoc m a a)))
+                  m
+                  pairs-eq)]
+   m))
 
 (defn- reduce-states [fsm]
   (let [accept (accept fsm)
