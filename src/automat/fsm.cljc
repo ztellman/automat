@@ -26,6 +26,7 @@
    descriptor
    sub-states
    action]
+  #?(:clj java.io.Serializable)
   Object
   #?(:clj (hashCode [_]
                     (p/+
@@ -137,7 +138,7 @@
                  (->> state->input->states keys set)
                  (->> state->input->states vals (mapcat vals) (apply set/union)))
         alphabet (apply set/union (->> state->input->states vals (map keys) (map set)))]
-    (reify IAutomaton
+    (reify #?(:clj java.io.Serializable) IAutomaton
       (deterministic? [_] false)
       (start [_] start)
       (accept [_] accept)
@@ -181,7 +182,7 @@
                  (->> state->input->state vals (mapcat vals) set))
         alphabet (apply set/union (->> state->input->state vals (map keys) (map set)))]
 
-    (reify IAutomaton
+    (reify #?(:clj java.io.Serializable) IAutomaton
       (deterministic? [_] true)
       (start [_] start)
       (accept [_] accept)

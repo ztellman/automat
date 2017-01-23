@@ -184,7 +184,7 @@ We can define reduction operations within our FSM using the `$` function:
 ```clj
 > (def f (a/compile
            [1 2 3 (a/$ :complete)]
-           {:reducers {:complete (fn [state input] :completed)}})))
+           {:reducers {:complete (fn [state input] :completed)}}))
 #'f
 > (view f)
 ```
@@ -282,6 +282,29 @@ It's also easy to extend.  Let's say that we want to save any `:product` pages t
 ![](/docs/readme-12.png)
 
 As our desired behavior gets more complicated, they can still be defined as small, composable pieces of behavior.
+
+Using this FSM would be indeed pretty straightforward :
+
+```clj
+> (def adv (partial a/advance f))
+> (-> nil
+      (adv {:page-type :cart})
+      (adv {:page-type :product})
+      (adv {:page-type :product})
+      (adv {:page-type :product})
+      (adv :anything)
+      (adv {:page-type :checkout})
+      (adv {:page-type :product})
+      (adv {:page-type :cart}) :value)
+{:offer-pages [{:page-type :cart}
+               {:page-type :product}
+               {:page-type :product}
+               {:page-type :product}
+               {:page-type :checkout}
+               {:page-type :product}
+               {:page-type :cart}],
+ :offer? true}
+```
 
 ### searching over streams
 
