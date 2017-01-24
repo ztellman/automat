@@ -421,26 +421,49 @@
 
 ;; union-find, basically
 (defn- merge-pairs [pairs]
-  (let [grouped (group-by (partial apply =) pairs)
-        pairs-dif (get grouped false)
-        pairs-eq  (get grouped true)
+  (let [;; :m target-map
+        ;; :c cache-map (contains lists of equivalent states)
+        add (fn [m k v]
+              (-> m
+                  (assoc-in  [:m k] v)
+                  (update-in [:c v] conj k)))
+        merg (fn [m x y]
+               (let [to-change (get-in m [:c x])]
+                 (->
+                  (reduce (fn [m k]
+                            (assoc-in m [:m k] y))
+                          m
+                          to-change)
+                  (update-in [:c y] clj/concat to-change)
+                  (update-in [:c] dissoc x))))
 
         m (reduce (fn [m [a b]]
-                    (if (contains? m a)
-                      (assoc m b a)
-                      (if (contains? m b)
-                        (assoc m a b)
-                        (assoc m a a b a))))
-                  {}
-                  pairs-dif)
+                    (let [a' (get-in m [:m a])
+                          b' (get-in m [:m b])]
 
-        m (reduce (fn [m [a _]]
-                    (if (contains? m a)
-                      m
-                      (assoc m a a)))
-                  m
-                  pairs-eq)]
-   m))
+                      (if (and a' b')
+                        ;;both exists
+                        (if (= a' b')
+                          ;;are equal -> do nothing
+                          m
+                          ;;are different -> merge sets of states
+                          (merg m a' b'))
+
+                        (if a'
+                          ;;exists only a -> add b
+                          (add m b a')
+                          (if b'
+                            ;;exists only b -> add a
+                            (add m a b')
+                            ;;nor a b
+                            (if (= a b)
+                              (add m a a)
+                              (-> m
+                                  (add a a)
+                                  (add b a))))))))
+                  {}
+                  pairs)]
+    (:m m)))
 
 (defn- reduce-states [fsm]
   (let [accept (accept fsm)
