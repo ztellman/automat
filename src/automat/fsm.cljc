@@ -421,18 +421,49 @@
 
 ;; union-find, basically
 (defn- merge-pairs [pairs]
-  (let [m (reduce
-            (fn [m [a b]]
-              (let [x (get m a (get m b a))]
-                (assoc m a x b x)))
-            {}
-            pairs)
-        root (fn root [x]
-               (let [x' (get m x)]
-                 (if (= x x')
-                   x
-                   (recur x'))))]
-    (zipmap* (keys m) root)))
+  (let [;; :m target-map
+        ;; :c cache-map (contains lists of equivalent states)
+        add (fn [m k v]
+              (-> m
+                  (assoc-in  [:m k] v)
+                  (update-in [:c v] conj k)))
+        merg (fn [m x y]
+               (let [to-change (get-in m [:c x])]
+                 (->
+                  (reduce (fn [m k]
+                            (assoc-in m [:m k] y))
+                          m
+                          to-change)
+                  (update-in [:c y] clj/concat to-change)
+                  (update-in [:c] dissoc x))))
+
+        m (reduce (fn [m [a b]]
+                    (let [a' (get-in m [:m a])
+                          b' (get-in m [:m b])]
+
+                      (if (and a' b')
+                        ;;both exists
+                        (if (= a' b')
+                          ;;are equal -> do nothing
+                          m
+                          ;;are different -> merge sets of states
+                          (merg m a' b'))
+
+                        (if a'
+                          ;;exists only a -> add b
+                          (add m b a')
+                          (if b'
+                            ;;exists only b -> add a
+                            (add m a b')
+                            ;;nor a b
+                            (if (= a b)
+                              (add m a a)
+                              (-> m
+                                  (add a a)
+                                  (add b a))))))))
+                  {}
+                  pairs)]
+    (:m m)))
 
 (defn- reduce-states [fsm]
   (let [accept (accept fsm)
