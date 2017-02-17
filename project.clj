@@ -1,4 +1,4 @@
-(defproject automat "0.2.1"
+(defproject automat "0.2.2"
   :description ""
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
