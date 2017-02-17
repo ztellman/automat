@@ -1,4 +1,4 @@
-(defproject automat "0.2.0"
+(defproject automat "0.2.1"
   :description ""
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -7,7 +7,7 @@
                  [potemkin "0.4.3"]
                  [proteus "0.1.6"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
-                                  [org.clojure/clojurescript "1.9.183"]
+                                  [org.clojure/clojurescript "1.9.473"]
                                   [org.clojure/test.check "0.9.0"]
                                   [criterium "0.4.4"]]
                    ;:prep-tasks ["compile" "javac"]
