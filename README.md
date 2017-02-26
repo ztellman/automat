@@ -333,11 +333,11 @@ When using `$` for accumulation tasks with `find` or `greedy-find`, it can be te
 ```clj
 > (def f
     (a/compile
-      [($:clear) (a/interpose-$ :conj (range 5))]
+      [(a/$ :clear) (a/interpose-$ :conj (range 5))]
       {:reducers {:clear (constantly [])
                   :conj conj}}))
 #'f
-> (a/find f (a/start f nil) (range 5))
+> (a/find f nil (range 5))
 {:accepted? true, :checkpoint nil, :state-index 5, :start-index 0, :stream-index 5, :value [0 1 2 3 4]}
 ```
 
