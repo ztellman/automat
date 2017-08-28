@@ -868,11 +868,8 @@
               ::none)))))))
 
 ; cljs.compiler tries to emit metadata on precompiled automata and chokes on IAutomaton
-#?(:clj (do
-          (defmacro ^:private cljs-emit-constant []
-            (when (try
-                    (-> 'cljs.compiler require nil?)
-                    (catch Exception _))
-              `(defmethod cljs.compiler/emit-constant ~IAutomaton [x#]
-                 (cljs.compiler/emit-constant nil))))
-          (cljs-emit-constant)))
+#?(:clj (defmacro ^:private cljs-emit-constant []
+          (eval '(defmethod cljs.compiler/emit-constant IAutomaton [x]
+                   (cljs.compiler/emit-constant nil)))
+          nil)
+   :cljs (automat.fsm/cljs-emit-constant))
