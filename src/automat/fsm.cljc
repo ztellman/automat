@@ -6,7 +6,8 @@
     [clojure.set :as set]
     #?(:clj [clojure.core :as clj]
        :cljs [cljs.core :as clj :include-macros true])
-    #?(:clj [primitive-math :as p])))
+    #?(:clj [primitive-math :as p]))
+  #?(:cljs (:require-macros automat.fsm)))
 
 (def is-identical? #?(:clj identical? :cljs keyword-identical?))
 
